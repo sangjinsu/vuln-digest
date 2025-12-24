@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  /* 배경 */
+  --color-bg-primary: #0a0a1a;
+  --color-bg-secondary: #12122a;
+  --color-bg-card: #1a1a3a;
+
+  /* 강조색 (별빛) */
+  --color-star: #f0f0ff;
+  --color-star-blue: #60a5fa;
+  --color-star-purple: #a78bfa;
+  --color-star-cyan: #22d3ee;
+
+  /* 심각도 색상 */
+  --color-severity-critical: #ef4444;
+  --color-severity-high: #f97316;
+  --color-severity-medium: #eab308;
+  --color-severity-low: #22c55e;
+
+  /* 텍스트 */
+  --color-text-primary: #f0f0ff;
+  --color-text-secondary: #a0a0c0;
+  --color-text-muted: #606080;
+
+  /* 보더 */
+  --color-border-default: #2a2a4a;
+  --color-border-hover: #3a3a5a;
+
+  /* 그라데이션 */
+  --gradient-night: linear-gradient(to bottom, #0a0a1a, #1a1a3a, #2a1a4a);
+  --gradient-aurora: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 기본 스타일 */
+body {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+}
+
+/* 스크롤바 스타일 (밤하늘 테마) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-hover);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
