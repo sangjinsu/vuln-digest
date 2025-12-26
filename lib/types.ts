@@ -21,6 +21,7 @@ export interface Vulnerability {
   affectedProducts: string[];
   publishedAt: string;           // ISO 8601
   url: string;                   // 원본 링크
+  _fallback?: boolean;           // CISA: 24시간 내 데이터 없을 때 최근 N건 표시용
 }
 
 // 취약점 조회 파라미터

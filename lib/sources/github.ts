@@ -1,6 +1,7 @@
 import { Vulnerability, VulnQueryParams, Severity } from '../types';
 import { GitHubAdvisory } from './types';
 import { dateRangeToStartDate } from '../utils/date';
+import { CACHE_TTL } from '../utils/cache';
 
 const GITHUB_API_URL = 'https://api.github.com/advisories';
 
@@ -52,7 +53,7 @@ export async function fetchGitHubVulnerabilities(
 
     const response = await fetch(`${GITHUB_API_URL}?per_page=100`, {
       headers,
-      next: { revalidate: 300 },
+      next: { revalidate: CACHE_TTL },
     });
 
     if (!response.ok) {

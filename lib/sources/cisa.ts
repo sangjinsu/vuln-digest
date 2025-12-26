@@ -8,7 +8,10 @@ const CISA_KEV_URL =
 /**
  * CISA KEV -> Vulnerability 변환
  */
-function transformCISAVulnerability(kev: CISAKEVVulnerability): Vulnerability {
+function transformCISAVulnerability(
+  kev: CISAKEVVulnerability,
+  isFallback: boolean = false
+): Vulnerability {
   const publishedAt = parseYYYYMMDD(kev.dateAdded).toISOString();
 
   return {
@@ -21,6 +24,7 @@ function transformCISAVulnerability(kev: CISAKEVVulnerability): Vulnerability {
     affectedProducts: [`${kev.vendorProject} ${kev.product}`],
     publishedAt,
     url: `https://nvd.nist.gov/vuln/detail/${kev.cveID}`,
+    ...(isFallback && { _fallback: true }),
   };
 }
 
@@ -55,7 +59,22 @@ export async function fetchCISAVulnerabilities(
         const addedDate = parseYYYYMMDD(kev.dateAdded);
         return addedDate >= startDate;
       })
-      .map(transformCISAVulnerability);
+      .map((kev) => transformCISAVulnerability(kev, false));
+
+    // Fallback: 24시간 내 데이터 없으면 최근 5건 표시
+    if (vulnerabilities.length === 0 && dateRange === '24h') {
+      const recentKevs = [...data.vulnerabilities]
+        .sort((a, b) => {
+          const dateA = parseYYYYMMDD(a.dateAdded);
+          const dateB = parseYYYYMMDD(b.dateAdded);
+          return dateB.getTime() - dateA.getTime();
+        })
+        .slice(0, 5);
+
+      vulnerabilities = recentKevs.map((kev) =>
+        transformCISAVulnerability(kev, true)
+      );
+    }
 
     // Severity 필터링 (KEV는 모두 critical이므로 critical 포함 시에만 반환)
     if (severity && severity.length > 0 && !severity.includes('critical')) {
