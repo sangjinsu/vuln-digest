@@ -10,7 +10,7 @@ interface SourceTabsProps {
   counts?: VulnResponse['meta']['sources'];
 }
 
-const AVAILABLE_SOURCES: SourceFilter[] = ['all', 'nvd', 'cisa'];
+const AVAILABLE_SOURCES: SourceFilter[] = ['all', 'nvd', 'cisa', 'github', 'pypi', 'maven'];
 
 export default function SourceTabs({ selected, onSelect, counts }: SourceTabsProps) {
   return (
