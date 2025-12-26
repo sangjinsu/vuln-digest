@@ -38,16 +38,18 @@ export default function VulnCard({ vulnerability }: VulnCardProps) {
             <ExternalLink className="h-3 w-3" />
           </a>
 
-          {/* Severity 배지 */}
-          <span
-            className={`
-              rounded-full px-3 py-1 text-xs font-semibold
-              ${SEVERITY_COLORS[severity]} text-white
-            `}
-          >
-            {severityLabel}
-            {cvssScore != null && ` ${cvssScore.toFixed(1)}`}
-          </span>
+          {/* Severity 배지 (unknown은 숨김) */}
+          {severity !== 'unknown' && (
+            <span
+              className={`
+                rounded-full px-3 py-1 text-xs font-semibold
+                ${SEVERITY_COLORS[severity]} text-white
+              `}
+            >
+              {severityLabel}
+              {cvssScore != null && ` ${cvssScore.toFixed(1)}`}
+            </span>
+          )}
 
           {/* 소스 배지 */}
           <span className="rounded-full bg-bg-secondary px-2 py-0.5 text-xs text-text-muted">
