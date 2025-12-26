@@ -7,7 +7,7 @@ import ReportOptions from '@/components/report/ReportOptions';
 import ReportViewer from '@/components/report/ReportViewer';
 
 export default function ReportPage() {
-  const [sources, setSources] = useState<VulnSource[]>(['nvd', 'cisa']);
+  const [sources, setSources] = useState<VulnSource[]>(['nvd', 'kisa']);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
   const [reportType, setReportType] = useState<ReportType>('summary');
   const [llmProvider, setLLMProvider] = useState<LLMProvider>('claude');

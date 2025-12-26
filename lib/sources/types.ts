@@ -91,29 +91,6 @@ export interface NVDReference {
   tags?: string[];
 }
 
-// ===== CISA KEV 응답 타입 =====
-
-export interface CISAKEVResponse {
-  title: string;
-  catalogVersion: string;
-  dateReleased: string;
-  count: number;
-  vulnerabilities: CISAKEVVulnerability[];
-}
-
-export interface CISAKEVVulnerability {
-  cveID: string;
-  vendorProject: string;
-  product: string;
-  vulnerabilityName: string;
-  dateAdded: string;
-  shortDescription: string;
-  requiredAction: string;
-  dueDate: string;
-  knownRansomwareCampaignUse: string;
-  notes: string;
-}
-
 // ===== GitHub Advisory API 응답 타입 =====
 
 export interface GitHubAdvisory {

@@ -1,5 +1,5 @@
 // 취약점 소스 타입
-export type VulnSource = 'nvd' | 'cisa' | 'github';
+export type VulnSource = 'nvd' | 'kisa' | 'github';
 
 // 심각도 타입
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'unknown';
@@ -78,11 +78,11 @@ export const SOURCE_INFO: Record<VulnSource, SourceInfo> = {
     description: 'National Vulnerability Database',
     url: 'https://nvd.nist.gov',
   },
-  cisa: {
-    id: 'cisa',
-    name: 'CISA KEV',
-    description: 'Known Exploited Vulnerabilities',
-    url: 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog',
+  kisa: {
+    id: 'kisa',
+    name: 'KISA 보안공지',
+    description: '한국인터넷진흥원 보안공지',
+    url: 'https://www.boho.or.kr/kr/bbs/list.do?menuNo=205020&bbsId=B0000133',
   },
   github: {
     id: 'github',

@@ -8,7 +8,7 @@ import { VulnSource, DateRange, ReportType } from '@/lib/types';
 export const maxDuration = 60;
 
 // 유효한 값 검증
-const VALID_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github'];
+const VALID_SOURCES: VulnSource[] = ['nvd', 'kisa', 'github'];
 const VALID_DATE_RANGES: DateRange[] = ['24h', 'week', 'month'];
 const VALID_REPORT_TYPES: ReportType[] = ['summary', 'detailed'];
 const VALID_LLM_PROVIDERS: LLMProvider[] = ['claude', 'openai', 'gemini'];
@@ -34,7 +34,7 @@ function validateRequest(body: unknown): ValidatedRequest {
   // sources 검증
   const validSources: VulnSource[] = Array.isArray(sources)
     ? sources.filter((s): s is VulnSource => VALID_SOURCES.includes(s as VulnSource))
-    : ['nvd', 'cisa'];
+    : ['nvd', 'kisa'];
 
   // dateRange 검증
   const validDateRange = VALID_DATE_RANGES.includes(dateRange as DateRange)

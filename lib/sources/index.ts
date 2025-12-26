@@ -6,14 +6,14 @@ import {
   Severity,
 } from '../types';
 import { fetchNVDVulnerabilities } from './nvd';
-import { fetchCISAVulnerabilities } from './cisa';
+import { fetchKISAVulnerabilities } from './kisa';
 import { fetchGitHubVulnerabilities } from './github';
 
 type SourceFetcher = (params: VulnQueryParams) => Promise<Vulnerability[]>;
 
 const SOURCE_FETCHERS: Partial<Record<VulnSource, SourceFetcher>> = {
   nvd: fetchNVDVulnerabilities,
-  cisa: fetchCISAVulnerabilities,
+  kisa: fetchKISAVulnerabilities,
   github: fetchGitHubVulnerabilities,
 };
 
@@ -25,7 +25,7 @@ function countBySources(
 ): Record<VulnSource, number> {
   const counts: Record<VulnSource, number> = {
     nvd: 0,
-    cisa: 0,
+    kisa: 0,
     github: 0,
   };
 
@@ -64,7 +64,7 @@ export async function fetchVulnerabilities(
   params: VulnQueryParams
 ): Promise<VulnResponse> {
   const {
-    sources = ['nvd', 'cisa', 'github'],
+    sources = ['nvd', 'kisa', 'github'],
     dateRange = '24h',
     severity,
     limit = 100,
@@ -120,5 +120,5 @@ export async function fetchVulnerabilities(
 
 // 개별 소스 fetcher export
 export { fetchNVDVulnerabilities } from './nvd';
-export { fetchCISAVulnerabilities } from './cisa';
+export { fetchKISAVulnerabilities } from './kisa';
 export { fetchGitHubVulnerabilities } from './github';
