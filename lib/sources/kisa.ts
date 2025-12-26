@@ -1,5 +1,6 @@
 import { Vulnerability, VulnQueryParams } from '../types';
 import { dateRangeToStartDate } from '../utils/date';
+import { fetchCVESeverity } from './nvd';
 
 const KISA_RSS_URL = 'https://www.boho.or.kr/kr/rss.do?bbsId=B0000133';
 
@@ -92,17 +93,29 @@ function parseKISADate(dateStr: string): string {
 }
 
 /**
- * RSS item → Vulnerability 변환 (상세 페이지에서 본문 추출)
+ * 텍스트에서 첫 번째 CVE ID 추출
+ */
+function extractFirstCVE(text: string): string | null {
+  const match = text.match(/CVE-\d{4}-\d+/i);
+  return match ? match[0].toUpperCase() : null;
+}
+
+/**
+ * RSS item → Vulnerability 변환 (상세 페이지에서 본문 추출 + NVD 심각도 조회)
  */
 async function transformKISAItemWithDetail(item: RSSItem): Promise<Vulnerability> {
   const nttId = extractNttId(item.link);
   const description = await fetchKISADetail(item.link);
 
+  // CVE ID 추출 및 NVD 조회
+  const cveId = extractFirstCVE(description || item.title);
+  const severityInfo = cveId ? await fetchCVESeverity(cveId) : null;
+
   return {
     id: `KISA-${nttId}`,
     source: 'kisa',
-    severity: 'unknown',
-    cvssScore: undefined,
+    severity: severityInfo?.severity ?? 'unknown',
+    cvssScore: severityInfo?.cvssScore,
     title: item.title,
     description: description || item.title, // fallback to title
     affectedProducts: [],

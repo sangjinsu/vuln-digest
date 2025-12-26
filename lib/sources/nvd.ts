@@ -20,7 +20,7 @@ export function cvssToSeverity(score: number | undefined): Severity {
 /**
  * CVSS 점수 추출 (v3.1 우선, 없으면 v3.0, 없으면 v2)
  */
-function extractCvssScore(cve: NVDCve): number | undefined {
+export function extractCvssScore(cve: NVDCve): number | undefined {
   const metrics = cve.metrics;
   if (!metrics) return undefined;
 
@@ -138,5 +138,36 @@ export async function fetchNVDVulnerabilities(
   } catch (error) {
     console.error('Failed to fetch NVD vulnerabilities:', error);
     return [];
+  }
+}
+
+/**
+ * 단일 CVE ID로 심각도 조회
+ */
+export async function fetchCVESeverity(
+  cveId: string
+): Promise<{ severity: Severity; cvssScore?: number } | null> {
+  const url = `${NVD_API_BASE}?cveId=${cveId}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      next: { revalidate: 86400 }, // 24시간 캐싱
+    });
+
+    if (!response.ok) return null;
+
+    const data: NVDResponse = await response.json();
+    if (data.vulnerabilities.length === 0) return null;
+
+    const cve = data.vulnerabilities[0].cve;
+    const cvssScore = extractCvssScore(cve);
+
+    return {
+      severity: cvssToSeverity(cvssScore),
+      cvssScore,
+    };
+  } catch {
+    return null;
   }
 }
