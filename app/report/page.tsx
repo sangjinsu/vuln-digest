@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { VulnSource, DateRange, ReportType } from '@/lib/types';
+import { LLMProvider } from '@/lib/llm';
 import ReportOptions from '@/components/report/ReportOptions';
 import ReportViewer from '@/components/report/ReportViewer';
 
@@ -9,11 +10,18 @@ export default function ReportPage() {
   const [sources, setSources] = useState<VulnSource[]>(['nvd', 'cisa']);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
   const [reportType, setReportType] = useState<ReportType>('summary');
+  const [llmProvider, setLLMProvider] = useState<LLMProvider>('claude');
+  const [apiKey, setApiKey] = useState('');
   const [markdown, setMarkdown] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = useCallback(async () => {
+    if (!apiKey.trim()) {
+      setError('API 키를 입력해주세요');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setMarkdown('');
@@ -28,11 +36,16 @@ export default function ReportPage() {
           sources,
           dateRange,
           reportType,
+          llm: {
+            provider: llmProvider,
+            apiKey,
+          },
         }),
       });
 
       if (!response.ok) {
-        throw new Error('보고서 생성에 실패했습니다');
+        const data = await response.json();
+        throw new Error(data.error || '보고서 생성에 실패했습니다');
       }
 
       const reader = response.body?.getReader();
@@ -62,8 +75,15 @@ export default function ReportPage() {
               if (parsed.content) {
                 setMarkdown((prev) => prev + parsed.content);
               }
-            } catch {
-              // JSON 파싱 실패 무시
+              if (parsed.error) {
+                throw new Error(parsed.error);
+              }
+            } catch (e) {
+              if (e instanceof SyntaxError) {
+                // JSON 파싱 실패 무시
+              } else {
+                throw e;
+              }
             }
           }
         }
@@ -73,7 +93,7 @@ export default function ReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [sources, dateRange, reportType]);
+  }, [sources, dateRange, reportType, llmProvider, apiKey]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -81,7 +101,7 @@ export default function ReportPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-star">AI 보고서 생성</h1>
         <p className="mt-2 text-text-secondary">
-          Claude AI가 취약점 데이터를 분석하여 한국어 보고서를 생성합니다
+          AI가 취약점 데이터를 분석하여 한국어 보고서를 생성합니다
         </p>
       </div>
 
@@ -100,9 +120,13 @@ export default function ReportPage() {
             sources={sources}
             dateRange={dateRange}
             reportType={reportType}
+            llmProvider={llmProvider}
+            apiKey={apiKey}
             onSourcesChange={setSources}
             onDateRangeChange={setDateRange}
             onReportTypeChange={setReportType}
+            onLLMProviderChange={setLLMProvider}
+            onApiKeyChange={setApiKey}
             onGenerate={handleGenerate}
             loading={loading}
           />

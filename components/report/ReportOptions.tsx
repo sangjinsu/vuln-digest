@@ -1,15 +1,21 @@
 'use client';
 
-import { FileText, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { VulnSource, DateRange, ReportType, SOURCE_INFO } from '@/lib/types';
+import { LLMProvider, LLM_PROVIDERS } from '@/lib/llm';
 
 interface ReportOptionsProps {
   sources: VulnSource[];
   dateRange: DateRange;
   reportType: ReportType;
+  llmProvider: LLMProvider;
+  apiKey: string;
   onSourcesChange: (sources: VulnSource[]) => void;
   onDateRangeChange: (range: DateRange) => void;
   onReportTypeChange: (type: ReportType) => void;
+  onLLMProviderChange: (provider: LLMProvider) => void;
+  onApiKeyChange: (key: string) => void;
   onGenerate: () => void;
   loading: boolean;
 }
@@ -31,12 +37,18 @@ export default function ReportOptions({
   sources,
   dateRange,
   reportType,
+  llmProvider,
+  apiKey,
   onSourcesChange,
   onDateRangeChange,
   onReportTypeChange,
+  onLLMProviderChange,
+  onApiKeyChange,
   onGenerate,
   loading,
 }: ReportOptionsProps) {
+  const [showApiKey, setShowApiKey] = useState(false);
+
   const handleSourceToggle = (source: VulnSource) => {
     if (sources.includes(source)) {
       if (sources.length > 1) {
@@ -47,9 +59,74 @@ export default function ReportOptions({
     }
   };
 
+  const isGenerateDisabled = loading || sources.length === 0 || !apiKey.trim();
+
   return (
     <div className="rounded-lg border border-border-default bg-bg-card p-6">
       <h2 className="text-lg font-semibold text-star mb-6">보고서 옵션</h2>
+
+      {/* AI 모델 선택 */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-text-secondary mb-3">
+          AI 모델
+        </label>
+        <div className="space-y-2">
+          {Object.values(LLM_PROVIDERS).map((provider) => (
+            <label
+              key={provider.id}
+              className={`
+                flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors
+                ${
+                  llmProvider === provider.id
+                    ? 'bg-star-purple/20 border border-star-purple'
+                    : 'bg-bg-secondary border border-transparent hover:border-border-hover'
+                }
+              `}
+            >
+              <input
+                type="radio"
+                name="llmProvider"
+                value={provider.id}
+                checked={llmProvider === provider.id}
+                onChange={() => onLLMProviderChange(provider.id)}
+                className="h-4 w-4 text-star-purple focus:ring-star-purple"
+              />
+              <div className="flex-1">
+                <span className="text-sm font-medium text-star">{provider.name}</span>
+                <p className="text-xs text-text-muted">{provider.description}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* API 키 입력 */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-text-secondary mb-3">
+          API 키
+        </label>
+        <div className="relative">
+          <input
+            type={showApiKey ? 'text' : 'password'}
+            value={apiKey}
+            onChange={(e) => onApiKeyChange(e.target.value)}
+            placeholder={LLM_PROVIDERS[llmProvider].keyPlaceholder}
+            className="w-full rounded-lg border border-border-default bg-bg-secondary
+                       px-4 py-2.5 pr-12 text-sm text-star placeholder:text-text-muted
+                       focus:border-star-purple focus:outline-none focus:ring-1 focus:ring-star-purple"
+          />
+          <button
+            type="button"
+            onClick={() => setShowApiKey(!showApiKey)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-star transition-colors"
+          >
+            {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-text-muted">
+          API 키는 서버에 저장되지 않습니다
+        </p>
+      </div>
 
       {/* 데이터 소스 */}
       <div className="mb-6">
@@ -140,11 +217,11 @@ export default function ReportOptions({
       {/* 생성 버튼 */}
       <button
         onClick={onGenerate}
-        disabled={loading || sources.length === 0}
+        disabled={isGenerateDisabled}
         className={`
           w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium transition-colors
           ${
-            loading || sources.length === 0
+            isGenerateDisabled
               ? 'bg-bg-secondary text-text-muted cursor-not-allowed'
               : 'bg-gradient-to-r from-star-purple to-star-blue text-white hover:opacity-90'
           }
@@ -162,6 +239,12 @@ export default function ReportOptions({
           </>
         )}
       </button>
+
+      {!apiKey.trim() && !loading && (
+        <p className="mt-2 text-xs text-center text-severity-medium">
+          API 키를 입력해주세요
+        </p>
+      )}
     </div>
   );
 }
