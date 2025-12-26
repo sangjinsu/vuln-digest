@@ -8,7 +8,7 @@ import { VulnSource, DateRange, ReportType } from '@/lib/types';
 export const maxDuration = 60;
 
 // 유효한 값 검증
-const VALID_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github', 'npm', 'pypi', 'maven'];
+const VALID_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github'];
 const VALID_DATE_RANGES: DateRange[] = ['24h', 'week', 'month'];
 const VALID_REPORT_TYPES: ReportType[] = ['summary', 'detailed'];
 const VALID_LLM_PROVIDERS: LLMProvider[] = ['claude', 'openai', 'gemini'];

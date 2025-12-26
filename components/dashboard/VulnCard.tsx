@@ -46,7 +46,7 @@ export default function VulnCard({ vulnerability }: VulnCardProps) {
             `}
           >
             {severityLabel}
-            {cvssScore !== undefined && ` ${cvssScore.toFixed(1)}`}
+            {cvssScore != null && ` ${cvssScore.toFixed(1)}`}
           </span>
 
           {/* 소스 배지 */}
@@ -81,9 +81,9 @@ export default function VulnCard({ vulnerability }: VulnCardProps) {
       {/* 영향받는 제품 */}
       {affectedProducts.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {affectedProducts.slice(0, 5).map((product) => (
+          {affectedProducts.slice(0, 5).map((product, index) => (
             <span
-              key={product}
+              key={`${product}-${index}`}
               className="rounded bg-bg-secondary px-2 py-0.5 text-xs text-text-muted font-mono"
             >
               {product}

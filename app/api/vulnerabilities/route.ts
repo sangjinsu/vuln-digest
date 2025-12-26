@@ -3,8 +3,8 @@ import { fetchVulnerabilities } from '@/lib/sources';
 import { VulnQueryParams, VulnSource, Severity, DateRange } from '@/lib/types';
 
 // 유효한 값 검증용 상수
-const VALID_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github', 'npm', 'pypi', 'maven'];
-const DEFAULT_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github', 'pypi', 'maven'];
+const VALID_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github'];
+const DEFAULT_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github'];
 const VALID_SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'unknown'];
 const VALID_DATE_RANGES: DateRange[] = ['24h', 'week', 'month'];
 

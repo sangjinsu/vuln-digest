@@ -1,5 +1,5 @@
 // 취약점 소스 타입
-export type VulnSource = 'nvd' | 'cisa' | 'github' | 'npm' | 'pypi' | 'maven';
+export type VulnSource = 'nvd' | 'cisa' | 'github';
 
 // 심각도 타입
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'unknown';
@@ -89,24 +89,6 @@ export const SOURCE_INFO: Record<VulnSource, SourceInfo> = {
     name: 'GitHub Advisory',
     description: 'GitHub Security Advisories',
     url: 'https://github.com/advisories',
-  },
-  npm: {
-    id: 'npm',
-    name: 'npm',
-    description: 'npm Security Advisories',
-    url: 'https://www.npmjs.com/advisories',
-  },
-  pypi: {
-    id: 'pypi',
-    name: 'PyPI',
-    description: 'Python Package Index (via OSV)',
-    url: 'https://pypi.org',
-  },
-  maven: {
-    id: 'maven',
-    name: 'Maven',
-    description: 'Maven Central (via OSV)',
-    url: 'https://mvnrepository.com',
   },
 };
 

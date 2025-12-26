@@ -8,7 +8,6 @@ import {
 import { fetchNVDVulnerabilities } from './nvd';
 import { fetchCISAVulnerabilities } from './cisa';
 import { fetchGitHubVulnerabilities } from './github';
-import { fetchPyPIVulnerabilities, fetchMavenVulnerabilities } from './osv';
 
 type SourceFetcher = (params: VulnQueryParams) => Promise<Vulnerability[]>;
 
@@ -16,8 +15,6 @@ const SOURCE_FETCHERS: Partial<Record<VulnSource, SourceFetcher>> = {
   nvd: fetchNVDVulnerabilities,
   cisa: fetchCISAVulnerabilities,
   github: fetchGitHubVulnerabilities,
-  pypi: fetchPyPIVulnerabilities,
-  maven: fetchMavenVulnerabilities,
 };
 
 /**
@@ -30,9 +27,6 @@ function countBySources(
     nvd: 0,
     cisa: 0,
     github: 0,
-    npm: 0,
-    pypi: 0,
-    maven: 0,
   };
 
   for (const vuln of vulnerabilities) {
@@ -70,7 +64,7 @@ export async function fetchVulnerabilities(
   params: VulnQueryParams
 ): Promise<VulnResponse> {
   const {
-    sources = ['nvd', 'cisa', 'github', 'pypi', 'maven'],
+    sources = ['nvd', 'cisa', 'github'],
     dateRange = '24h',
     severity,
     limit = 100,
@@ -138,4 +132,3 @@ export async function fetchVulnerabilities(
 export { fetchNVDVulnerabilities } from './nvd';
 export { fetchCISAVulnerabilities } from './cisa';
 export { fetchGitHubVulnerabilities } from './github';
-export { fetchPyPIVulnerabilities, fetchMavenVulnerabilities } from './osv';
