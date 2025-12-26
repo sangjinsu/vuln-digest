@@ -94,7 +94,11 @@ export default function Dashboard() {
         {/* 필터 영역 */}
         <div className="mb-6 space-y-4">
           {/* 검색 */}
-          <SearchInput value={searchText} onChange={setSearchText} />
+          <SearchInput
+            value={searchText}
+            onChange={setSearchText}
+            vulnerabilities={data?.data || []}
+          />
 
           {/* 심각도 필터 */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -127,7 +131,11 @@ export default function Dashboard() {
           />
         </div>
 
-        <VulnList vulnerabilities={filteredVulnerabilities} loading={loading} />
+        <VulnList
+          vulnerabilities={filteredVulnerabilities}
+          loading={loading}
+          searchQuery={searchText}
+        />
       </div>
     </div>
   );

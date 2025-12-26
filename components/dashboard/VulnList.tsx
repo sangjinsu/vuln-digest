@@ -5,6 +5,7 @@ import VulnCard from './VulnCard';
 interface VulnListProps {
   vulnerabilities: Vulnerability[];
   loading?: boolean;
+  searchQuery?: string;
 }
 
 function LoadingSkeleton() {
@@ -38,7 +39,7 @@ function EmptyState() {
   );
 }
 
-export default function VulnList({ vulnerabilities, loading }: VulnListProps) {
+export default function VulnList({ vulnerabilities, loading, searchQuery }: VulnListProps) {
   if (loading) {
     return <LoadingSkeleton />;
   }
@@ -50,7 +51,11 @@ export default function VulnList({ vulnerabilities, loading }: VulnListProps) {
   return (
     <div className="space-y-4">
       {vulnerabilities.map((vuln) => (
-        <VulnCard key={`${vuln.source}-${vuln.id}`} vulnerability={vuln} />
+        <VulnCard
+          key={`${vuln.source}-${vuln.id}`}
+          vulnerability={vuln}
+          searchQuery={searchQuery}
+        />
       ))}
     </div>
   );

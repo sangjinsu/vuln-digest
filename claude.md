@@ -10,6 +10,7 @@ AI가 정리해주는 보안 취약점 브리핑 서비스. 여러 보안 취약
 - 한국어 보고서 자동 생성
 - 마크다운 형식 보고서 복사 지원
 - 밤하늘 테마 UI
+- **클라이언트 키워드 추출** (Compromise.js)
 
 ## 기술 스택
 
@@ -20,6 +21,7 @@ AI가 정리해주는 보안 취약점 브리핑 서비스. 여러 보안 취약
 | 스타일링 | Tailwind CSS v4 |
 | UI 컴포넌트 | 커스텀 컴포넌트 (Tailwind v4 네이티브) |
 | AI | Claude, OpenAI GPT, Google Gemini |
+| NLP | Compromise.js (클라이언트 키워드 추출) |
 | 배포 | Vercel (Production) |
 
 ## 아키텍처
@@ -35,6 +37,11 @@ AI가 정리해주는 보안 취약점 브리핑 서비스. 여러 보안 취약
 │  ┌─────────────────────────────────────┐│
 │  │  React Server Components            ││
 │  │  - 대시보드, 보고서 뷰어             ││
+│  └─────────────────────────────────────┘│
+│  ┌─────────────────────────────────────┐│
+│  │  Client Components                  ││
+│  │  - 키워드 추출 (Compromise.js)       ││
+│  │  - 검색 자동완성                     ││
 │  └─────────────────────────────────────┘│
 └─────────────────────────────────────────┘
          │                    │
@@ -54,6 +61,7 @@ AI가 정리해주는 보안 취약점 브리핑 서비스. 여러 보안 취약
 - **캐싱**: Next.js fetch 캐시 활용 (revalidate: 300초)
 - **Server Components 우선**: 클라이언트 컴포넌트 최소화
 - **클라이언트 API 키**: 사용자가 직접 API 키 입력 (서버 저장 없음)
+- **경량 NLP**: Compromise.js로 클라이언트에서 키워드 추출 (~200KB)
 
 ## 데이터 소스
 
@@ -130,7 +138,7 @@ vuln-digest/
 │   │   ├── VulnCard.tsx        # 개별 취약점 카드
 │   │   ├── DateRangePicker.tsx # 기간 선택 (24h/week/month)
 │   │   ├── SeverityFilter.tsx  # 심각도 필터
-│   │   ├── SearchInput.tsx     # 검색 입력
+│   │   ├── SearchInput.tsx     # 검색 입력 (키워드 자동완성)
 │   │   └── StatsCards.tsx      # 통계 카드
 │   ├── report/
 │   │   ├── ReportViewer.tsx    # 마크다운 렌더링
@@ -151,7 +159,8 @@ vuln-digest/
 │   │   └── types.ts            # LLM 타입 정의
 │   ├── utils/
 │   │   ├── cache.ts            # 캐시 유틸리티
-│   │   └── date.ts             # 날짜 유틸리티
+│   │   ├── date.ts             # 날짜 유틸리티
+│   │   └── keywords.ts         # 키워드 추출 (Compromise.js)
 │   ├── prompts.ts              # 보고서 생성 프롬프트
 │   └── types.ts                # TypeScript 타입 정의
 ├── .env.local                  # 환경 변수 (gitignore)
@@ -331,6 +340,249 @@ export const LLM_PROVIDERS: Record<LLMProvider, LLMProviderInfo> = {
 // 기본 모델 가져오기
 export function getDefaultModel(provider: LLMProvider): string {
   return LLM_PROVIDERS[provider].defaultModel;
+}
+```
+
+## 키워드 추출 (Compromise.js)
+
+클라이언트에서 경량 NLP로 키워드 추출. LLM 없이 빠르게 CVE ID, 제품명, 보안 용어 추출.
+
+### 왜 Compromise.js?
+
+| 방법 | 크기 | 속도 | 정확도 | 선택 이유 |
+|------|------|------|--------|----------|
+| **Compromise.js** | ~200KB | ⚡ 즉시 | 좋음 | ✅ 가볍고 빠름 |
+| wink-nlp | ~1MB | 빠름 | 좋음 | 크기 부담 |
+| Transformers.js | 30-100MB | 느림 | 매우 좋음 | 초기 로드 느림 |
+| WebLLM | 2-4GB | 느림 | 최고 | 너무 무거움 |
+
+### 타입 정의
+
+```typescript
+// lib/utils/keywords.ts
+
+export interface ExtractedKeywords {
+  ids: string[];           // CVE, GHSA, KISA IDs
+  products: string[];      // 제품/패키지명
+  terms: string[];         // 보안 용어
+  all: string[];           // 전체 (중복 제거)
+}
+```
+
+### 구현
+
+```typescript
+// lib/utils/keywords.ts
+'use client';
+
+import nlp from 'compromise';
+
+// 보안 관련 기술 용어 사전
+const SECURITY_TERMS = [
+  // 공격 유형
+  'RCE', 'XSS', 'SQLi', 'CSRF', 'SSRF', 'LFI', 'RFI',
+  'buffer overflow', 'heap overflow', 'stack overflow',
+  'use after free', 'double free', 'null pointer dereference',
+  // 취약점 유형
+  'authentication bypass', 'privilege escalation',
+  'remote code execution', 'denial of service', 'DoS', 'DDoS',
+  'injection', 'deserialization', 'path traversal',
+  'information disclosure', 'memory corruption',
+  'arbitrary file read', 'arbitrary file write',
+  // 프로토콜/기술
+  'HTTP', 'HTTPS', 'SSH', 'FTP', 'DNS', 'TLS', 'SSL',
+];
+
+// CVE/GHSA/KISA ID 패턴
+const ID_PATTERNS = {
+  cve: /CVE-\d{4}-\d{4,}/gi,
+  ghsa: /GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/gi,
+  kisa: /KISA-\d+/gi,
+};
+
+/**
+ * 텍스트에서 보안 관련 키워드 추출
+ */
+export function extractKeywords(text: string): ExtractedKeywords {
+  const ids: string[] = [];
+  const products: string[] = [];
+  const terms: string[] = [];
+
+  // 1. ID 추출 (CVE, GHSA, KISA)
+  Object.values(ID_PATTERNS).forEach(pattern => {
+    const matches = text.match(pattern) || [];
+    ids.push(...matches.map(m => m.toUpperCase()));
+  });
+
+  // 2. 제품명/패키지명 추출 (Compromise.js)
+  const doc = nlp(text);
+  
+  // 고유명사 추출
+  const properNouns = doc.match('#ProperNoun+').out('array');
+  products.push(...properNouns);
+  
+  // 대문자로 시작하는 단어 (Apache, Nginx, Linux 등)
+  const capitalWords = text.match(/\b[A-Z][a-zA-Z0-9.]+(?:\s+[A-Z][a-zA-Z0-9.]+)*/g) || [];
+  products.push(...capitalWords.filter(w => 
+    !ID_PATTERNS.cve.test(w) && 
+    !ID_PATTERNS.ghsa.test(w) &&
+    !w.startsWith('KISA') &&
+    w.length > 2
+  ));
+
+  // 3. 보안 용어 추출
+  const lowerText = text.toLowerCase();
+  SECURITY_TERMS.forEach(term => {
+    if (lowerText.includes(term.toLowerCase())) {
+      terms.push(term);
+    }
+  });
+
+  // 중복 제거 및 정리
+  const uniqueIds = [...new Set(ids)];
+  const uniqueProducts = [...new Set(products)]
+    .filter(p => p.length > 2)
+    .slice(0, 10);  // 최대 10개
+  const uniqueTerms = [...new Set(terms)];
+
+  return {
+    ids: uniqueIds,
+    products: uniqueProducts,
+    terms: uniqueTerms,
+    all: [...new Set([...uniqueIds, ...uniqueProducts, ...uniqueTerms])],
+  };
+}
+
+/**
+ * 취약점 목록에서 키워드 추출
+ */
+export function extractKeywordsFromVulns(
+  vulns: { title: string; description: string }[]
+): ExtractedKeywords {
+  const allText = vulns.map(v => `${v.title} ${v.description}`).join(' ');
+  return extractKeywords(allText);
+}
+
+/**
+ * 검색어 자동완성용 키워드 추출
+ */
+export function extractSearchSuggestions(
+  vulns: { title: string; description: string; id: string }[]
+): string[] {
+  const keywords = extractKeywordsFromVulns(vulns);
+  const vulnIds = vulns.map(v => v.id);
+  
+  return [...new Set([
+    ...vulnIds.slice(0, 5),
+    ...keywords.products.slice(0, 5),
+    ...keywords.terms.slice(0, 3),
+  ])];
+}
+
+/**
+ * 텍스트 하이라이트 (검색 결과용)
+ */
+export function highlightText(text: string, query: string): string {
+  if (!query.trim()) return text;
+  
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escapedQuery})`, 'gi');
+  return text.replace(regex, '<mark class="bg-star-purple/30 text-star">$1</mark>');
+}
+```
+
+### 사용 예시
+
+```typescript
+// 1. 검색 자동완성
+import { extractSearchSuggestions } from '@/lib/utils/keywords';
+
+const suggestions = extractSearchSuggestions(vulnerabilities);
+// → ['CVE-2024-1234', 'Apache', 'Nginx', 'RCE', 'XSS']
+
+// 2. 취약점 카드에서 핵심 용어 추출
+import { extractKeywords } from '@/lib/utils/keywords';
+
+const keywords = extractKeywords(vulnerability.description);
+// → { ids: ['CVE-2024-1234'], products: ['Apache'], terms: ['RCE'] }
+
+// 3. 보고서 생성 전 키워드 분석
+const allKeywords = extractKeywordsFromVulns(vulnerabilities);
+console.log('주요 제품:', allKeywords.products);
+console.log('공격 유형:', allKeywords.terms);
+
+// 4. 검색 결과 하이라이트
+import { highlightText } from '@/lib/utils/keywords';
+
+const highlighted = highlightText(vulnerability.title, searchQuery);
+// → "Apache <mark>HTTP Server</mark> 취약점"
+```
+
+### 컴포넌트 예시: SearchInput with Autocomplete
+
+```typescript
+// components/dashboard/SearchInput.tsx
+'use client';
+
+import { useState, useMemo } from 'react';
+import { Search } from 'lucide-react';
+import { extractSearchSuggestions } from '@/lib/utils/keywords';
+import type { Vulnerability } from '@/lib/types';
+
+interface SearchInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  vulnerabilities: Vulnerability[];
+}
+
+export function SearchInput({ value, onChange, vulnerabilities }: SearchInputProps) {
+  const [isFocused, setIsFocused] = useState(false);
+  
+  // 키워드 기반 자동완성 제안
+  const suggestions = useMemo(() => {
+    if (!isFocused || value.length < 2) return [];
+    
+    const allSuggestions = extractSearchSuggestions(vulnerabilities);
+    return allSuggestions.filter(s => 
+      s.toLowerCase().includes(value.toLowerCase())
+    ).slice(0, 5);
+  }, [vulnerabilities, value, isFocused]);
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+          placeholder="CVE ID, 제품명, 보안 용어 검색..."
+          className="w-full pl-10 pr-4 py-2 bg-bg-card border border-border-default 
+                     rounded-lg text-text-primary placeholder:text-text-muted
+                     focus:outline-none focus:border-star-purple"
+        />
+      </div>
+      
+      {/* 자동완성 드롭다운 */}
+      {suggestions.length > 0 && (
+        <ul className="absolute z-10 w-full mt-1 bg-bg-card border border-border-default 
+                       rounded-lg shadow-lg overflow-hidden">
+          {suggestions.map((suggestion, idx) => (
+            <li
+              key={idx}
+              onClick={() => onChange(suggestion)}
+              className="px-4 py-2 cursor-pointer hover:bg-bg-secondary text-text-secondary
+                         hover:text-text-primary transition-colors"
+            >
+              {suggestion}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 ```
 
@@ -519,18 +771,18 @@ border-border-hover    /* #3a3a5a */
 ### 1. 메인 대시보드 (`/`)
 - 상단: 통계 카드 (Critical/High 수, 전체 수, 마지막 업데이트)
 - 중단: 소스별 탭 + 취약점 목록 **(기본: 24시간 내 취약점만 표시)**
-   - 탭: 전체 | GitHub | KISA | NVD (순서)
-   - 심각도 필터, 검색 입력
+  - 탭: 전체 | GitHub | KISA | NVD (순서)
+  - 심각도 필터, 검색 입력 **(키워드 자동완성)**
 - 기간 필터: 24시간 (기본) / 1주일 / 1개월
 
 ### 2. 보고서 페이지 (`/report`)
 - 좌측: 옵션 패널
-   - **AI Provider 선택** (Claude / OpenAI / Gemini)
-   - **모델 선택** (Provider별 모델 목록)
-   - **API 키 입력** (마스킹 처리, 서버 저장 없음)
-   - 소스 선택 (GitHub, KISA, NVD)
-   - 기간 선택 (24시간, 1주일, 1개월)
-   - 형식 선택 (요약/상세)
+  - **AI Provider 선택** (Claude / OpenAI / Gemini)
+  - **모델 선택** (Provider별 모델 목록)
+  - **API 키 입력** (마스킹 처리, 서버 저장 없음)
+  - 소스 선택 (GitHub, KISA, NVD)
+  - 기간 선택 (24시간, 1주일, 1개월)
+  - 형식 선택 (요약/상세)
 - 우측: 보고서 뷰어 (마크다운 렌더링, 스트리밍 표시)
 - 상단 우측: "마크다운 복사" 버튼
 - 생성 중: 로딩 스피너 + 스트리밍 표시
@@ -629,6 +881,7 @@ CACHE_TTL=300                    # 캐시 유지 시간 (초) - 토큰 있으면
     "@anthropic-ai/sdk": "^0.71.2",
     "@google/generative-ai": "^0.24.1",
     "openai": "^6.15.0",
+    "compromise": "^14.14.0",
     "lucide-react": "^0.468.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
@@ -737,6 +990,12 @@ chore: 빌드, 설정 변경
 - [x] 로딩/스켈레톤 UI
 - [x] 반응형 점검
 - [x] 빈 상태 UI (데이터 없을 때)
+
+### Phase 6: 키워드 추출 (추가) ✅
+- [x] Compromise.js 설치
+- [x] keywords.ts 구현
+- [x] SearchInput 자동완성 적용
+- [x] 검색 결과 하이라이트
 
 ## 데이터 수집 로직
 
@@ -857,6 +1116,7 @@ export async function fetchVulnerabilities(params: VulnQueryParams): Promise<Vul
 5. **에러 메시지**: 사용자에게 기술적 세부사항 노출 금지
 6. **한국어**: 모든 UI 텍스트 및 보고서는 한국어로
 7. **접근성**: 적절한 contrast ratio 유지 (밤하늘 테마에서도)
+8. **Compromise.js**: 클라이언트 전용 (~200KB), 'use client' 필수
 
 ## 참고 링크
 
@@ -866,6 +1126,7 @@ export async function fetchVulnerabilities(params: VulnQueryParams): Promise<Vul
 - [Anthropic Claude API](https://docs.anthropic.com/claude/reference/messages_post)
 - [OpenAI API](https://platform.openai.com/docs/api-reference)
 - [Google Gemini API](https://ai.google.dev/api)
+- [Compromise.js](https://compromise.cool/)
 - [Next.js App Router](https://nextjs.org/docs/app)
 - [Tailwind CSS v4](https://tailwindcss.com/docs/v4-beta)
 - [Vercel 배포 가이드](https://vercel.com/docs)

@@ -1,20 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
+import { Vulnerability } from '@/lib/types';
+import { extractSearchSuggestions } from '@/lib/utils/keywords';
 
 interface SearchInputProps {
   value: string;
   onChange: (value: string) => void;
+  vulnerabilities?: Vulnerability[];
   placeholder?: string;
 }
 
 export default function SearchInput({
   value,
   onChange,
+  vulnerabilities = [],
   placeholder = 'CVE ID, 제목, 설명 검색...',
 }: SearchInputProps) {
   const [localValue, setLocalValue] = useState(value);
+  const [isFocused, setIsFocused] = useState(false);
 
   // 디바운스 적용
   useEffect(() => {
@@ -30,9 +35,27 @@ export default function SearchInput({
     setLocalValue(value);
   }, [value]);
 
+  // 키워드 기반 자동완성 제안
+  const suggestions = useMemo(() => {
+    if (!isFocused || localValue.length < 2 || vulnerabilities.length === 0) {
+      return [];
+    }
+
+    const allSuggestions = extractSearchSuggestions(vulnerabilities);
+    return allSuggestions
+      .filter(s => s.toLowerCase().includes(localValue.toLowerCase()))
+      .slice(0, 5);
+  }, [vulnerabilities, localValue, isFocused]);
+
   const handleClear = () => {
     setLocalValue('');
     onChange('');
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setLocalValue(suggestion);
+    onChange(suggestion);
+    setIsFocused(false);
   };
 
   return (
@@ -42,6 +65,8 @@ export default function SearchInput({
         type="text"
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setTimeout(() => setIsFocused(false), 200)}
         placeholder={placeholder}
         className="w-full rounded-lg border border-border-default bg-bg-card pl-10 pr-10 py-2.5
                    text-sm text-star placeholder:text-text-muted
@@ -55,6 +80,23 @@ export default function SearchInput({
         >
           <X className="h-4 w-4" />
         </button>
+      )}
+
+      {/* 자동완성 드롭다운 */}
+      {suggestions.length > 0 && (
+        <ul className="absolute z-10 w-full mt-1 bg-bg-card border border-border-default
+                       rounded-lg shadow-lg overflow-hidden">
+          {suggestions.map((suggestion, idx) => (
+            <li
+              key={idx}
+              onMouseDown={() => handleSuggestionClick(suggestion)}
+              className="px-4 py-2 cursor-pointer hover:bg-bg-secondary text-text-secondary
+                         hover:text-text-primary transition-colors text-sm"
+            >
+              {suggestion}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

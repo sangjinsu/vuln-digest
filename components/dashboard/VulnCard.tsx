@@ -1,11 +1,15 @@
+'use client';
+
 import { ExternalLink } from 'lucide-react';
 import { Vulnerability, SEVERITY_COLORS, SEVERITY_TEXT_COLORS, SOURCE_INFO } from '@/lib/types';
+import { highlightText, extractKeywordsFromVuln } from '@/lib/utils/keywords';
 
 interface VulnCardProps {
   vulnerability: Vulnerability;
+  searchQuery?: string;
 }
 
-export default function VulnCard({ vulnerability }: VulnCardProps) {
+export default function VulnCard({ vulnerability, searchQuery }: VulnCardProps) {
   const {
     id,
     source,
@@ -18,6 +22,13 @@ export default function VulnCard({ vulnerability }: VulnCardProps) {
     url,
     _fallback,
   } = vulnerability;
+
+  // 검색어 하이라이트 적용
+  const highlightedTitle = searchQuery ? highlightText(title, searchQuery) : title;
+  const highlightedDescription = searchQuery ? highlightText(description, searchQuery) : description;
+
+  // 키워드 추출
+  const keywords = extractKeywordsFromVuln({ title, description });
 
   const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
   const sourceInfo = SOURCE_INFO[source];
@@ -72,12 +83,12 @@ export default function VulnCard({ vulnerability }: VulnCardProps) {
 
       {/* 제목 */}
       <h3 className="text-sm font-medium text-star mb-2 line-clamp-2">
-        {title}
+        {highlightedTitle}
       </h3>
 
       {/* 설명 */}
       <p className="text-xs text-text-secondary mb-3 line-clamp-3">
-        {description}
+        {highlightedDescription}
       </p>
 
       {/* 영향받는 제품 */}
@@ -96,6 +107,20 @@ export default function VulnCard({ vulnerability }: VulnCardProps) {
               +{affectedProducts.length - 5}개
             </span>
           )}
+        </div>
+      )}
+
+      {/* 키워드 태그 */}
+      {keywords.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {keywords.map((keyword, idx) => (
+            <span
+              key={idx}
+              className="rounded bg-star-purple/20 px-2 py-0.5 text-xs text-star-purple"
+            >
+              {keyword}
+            </span>
+          ))}
         </div>
       )}
     </div>
