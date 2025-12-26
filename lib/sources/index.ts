@@ -7,13 +7,17 @@ import {
 } from '../types';
 import { fetchNVDVulnerabilities } from './nvd';
 import { fetchCISAVulnerabilities } from './cisa';
+import { fetchGitHubVulnerabilities } from './github';
+import { fetchPyPIVulnerabilities, fetchMavenVulnerabilities } from './osv';
 
 type SourceFetcher = (params: VulnQueryParams) => Promise<Vulnerability[]>;
 
 const SOURCE_FETCHERS: Partial<Record<VulnSource, SourceFetcher>> = {
   nvd: fetchNVDVulnerabilities,
   cisa: fetchCISAVulnerabilities,
-  // 향후 확장: github, npm, pypi, maven
+  github: fetchGitHubVulnerabilities,
+  pypi: fetchPyPIVulnerabilities,
+  maven: fetchMavenVulnerabilities,
 };
 
 /**
@@ -133,3 +137,5 @@ export async function fetchVulnerabilities(
 // 개별 소스 fetcher export
 export { fetchNVDVulnerabilities } from './nvd';
 export { fetchCISAVulnerabilities } from './cisa';
+export { fetchGitHubVulnerabilities } from './github';
+export { fetchPyPIVulnerabilities, fetchMavenVulnerabilities } from './osv';
