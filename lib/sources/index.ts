@@ -70,7 +70,7 @@ export async function fetchVulnerabilities(
   params: VulnQueryParams
 ): Promise<VulnResponse> {
   const {
-    sources = ['nvd', 'cisa'],
+    sources = ['nvd', 'cisa', 'github', 'pypi', 'maven'],
     dateRange = '24h',
     severity,
     limit = 100,

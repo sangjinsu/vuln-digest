@@ -46,6 +46,8 @@ export async function fetchCISAVulnerabilities(
 
     const data: CISAKEVResponse = await response.json();
     const startDate = new Date(dateRangeToStartDate(dateRange));
+    // CISA는 날짜만 있으므로 시간을 00:00:00으로 맞춤
+    startDate.setHours(0, 0, 0, 0);
 
     // dateAdded 필터링
     let vulnerabilities = data.vulnerabilities

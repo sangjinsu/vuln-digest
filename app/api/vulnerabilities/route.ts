@@ -4,6 +4,7 @@ import { VulnQueryParams, VulnSource, Severity, DateRange } from '@/lib/types';
 
 // 유효한 값 검증용 상수
 const VALID_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github', 'npm', 'pypi', 'maven'];
+const DEFAULT_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github', 'pypi', 'maven'];
 const VALID_SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'unknown'];
 const VALID_DATE_RANGES: DateRange[] = ['24h', 'week', 'month'];
 
@@ -13,13 +14,13 @@ const VALID_DATE_RANGES: DateRange[] = ['24h', 'week', 'month'];
 function parseQueryParams(request: NextRequest): VulnQueryParams {
   const searchParams = request.nextUrl.searchParams;
 
-  // sources 파싱 (쉼표 구분)
+  // sources 파싱 (쉼표 구분) - 기본값: 모든 구현된 소스
   const sourcesParam = searchParams.get('sources');
   const sources = sourcesParam
     ? (sourcesParam.split(',').filter((s) =>
         VALID_SOURCES.includes(s as VulnSource)
       ) as VulnSource[])
-    : undefined;
+    : DEFAULT_SOURCES;
 
   // severity 파싱 (쉼표 구분)
   const severityParam = searchParams.get('severity');
