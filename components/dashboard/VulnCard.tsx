@@ -40,13 +40,12 @@ export default function VulnCard({ vulnerability }: VulnCardProps) {
           {/* Severity 배지 */}
           <span
             className={`
-              rounded-full px-2 py-0.5 text-xs font-medium
-              ${SEVERITY_COLORS[severity]} ${SEVERITY_TEXT_COLORS[severity]}
-              bg-opacity-20
+              rounded-full px-3 py-1 text-xs font-semibold
+              ${SEVERITY_COLORS[severity]} text-white
             `}
           >
             {severityLabel}
-            {cvssScore !== undefined && ` (${cvssScore.toFixed(1)})`}
+            {cvssScore !== undefined && ` ${cvssScore.toFixed(1)}`}
           </span>
 
           {/* 소스 배지 */}
