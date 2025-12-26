@@ -113,3 +113,79 @@ export interface CISAKEVVulnerability {
   knownRansomwareCampaignUse: string;
   notes: string;
 }
+
+// ===== GitHub Advisory API 응답 타입 =====
+
+export interface GitHubAdvisory {
+  ghsa_id: string;
+  cve_id: string | null;
+  html_url: string;
+  summary: string;
+  description: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  cvss?: {
+    score: number;
+    vector_string: string;
+  };
+  published_at: string;
+  updated_at: string;
+  vulnerabilities: GitHubVulnerablePackage[];
+}
+
+export interface GitHubVulnerablePackage {
+  package: {
+    ecosystem: string;
+    name: string;
+  };
+  vulnerable_version_range: string;
+  first_patched_version: string | null;
+}
+
+// ===== OSV API 응답 타입 (PyPI/Maven) =====
+
+export interface OSVQueryRequest {
+  package?: {
+    ecosystem: string;
+    name: string;
+  };
+}
+
+export interface OSVQueryResponse {
+  vulns?: OSVVulnerability[];
+}
+
+export interface OSVVulnerability {
+  id: string;
+  summary: string;
+  details: string;
+  aliases?: string[];
+  modified: string;
+  published: string;
+  severity?: OSVSeverity[];
+  affected?: OSVAffected[];
+  references?: OSVReference[];
+}
+
+export interface OSVSeverity {
+  type: string;
+  score: string;
+}
+
+export interface OSVAffected {
+  package: {
+    ecosystem: string;
+    name: string;
+  };
+  ranges?: OSVRange[];
+  versions?: string[];
+}
+
+export interface OSVRange {
+  type: string;
+  events: { introduced?: string; fixed?: string }[];
+}
+
+export interface OSVReference {
+  type: string;
+  url: string;
+}
