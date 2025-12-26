@@ -52,19 +52,61 @@ AI가 정리해주는 보안 취약점 브리핑 서비스. 여러 보안 취약
 
 ## 데이터 소스
 
-| 소스 | API/URL | 용도 |
-|------|---------|------|
-| NVD | `https://services.nvd.nist.gov/rest/json/cves/2.0` | 범용 CVE |
-| CISA KEV | `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json` | 실제 악용 취약점 |
-| GitHub Advisory | `https://api.github.com/advisories` | GitHub 생태계 |
-| npm | `https://registry.npmjs.org/-/npm/v1/security/advisories` | npm 패키지 |
-| PyPI (OSV) | `https://api.osv.dev/v1/query` | Python 패키지 |
-| Maven (OSV) | `https://api.osv.dev/v1/query` | Java 패키지 |
+| 소스 | API/URL | 용도 | 비고 |
+|------|---------|------|------|
+| NVD | `https://services.nvd.nist.gov/rest/json/cves/2.0` | 범용 CVE | API 키 권장 |
+| CISA KEV | `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json` | 실제 악용 취약점 | 업데이트 빈도 낮음 |
+| GitHub Advisory | `https://api.github.com/advisories` | GitHub + npm + PyPI + Maven 통합 | **Token 필수** |
+
+### ⚠️ OSV API 미사용 이유
+
+OSV API (osv.dev)는 **시간 기반 조회를 지원하지 않음**:
+```javascript
+// ❌ OSV는 패키지명 필수 - "최근 24시간" 쿼리 불가
+POST https://api.osv.dev/v1/query
+{
+  "package": { "name": "requests", "ecosystem": "PyPI" }  // 패키지명 필수!
+}
+```
+
+대신 **GitHub Advisory API**로 모든 생태계 통합:
+```javascript
+// ✅ GitHub Advisory - 시간 + 생태계 필터링 가능
+GET https://api.github.com/advisories?ecosystem=pip&published=2024-12-26..
+GET https://api.github.com/advisories?ecosystem=maven&published=2024-12-26..
+GET https://api.github.com/advisories?ecosystem=npm&published=2024-12-26..
+```
+
+### GitHub Advisory 생태계 매핑
+
+| 표시명 | ecosystem 파라미터 |
+|--------|-------------------|
+| npm | `npm` |
+| PyPI | `pip` |
+| Maven | `maven` |
+| Go | `go` |
+| RubyGems | `rubygems` |
+| Rust | `crates.io` |
 
 ### Rate Limit 주의
-- **NVD**: API 키 없으면 5 req/30초, 있으면 50 req/30초
-- **GitHub**: 인증 없으면 60 req/시간
-- 반드시 캐싱 적용할 것
+
+| 소스 | 인증 없음 | 인증 있음 |
+|------|----------|----------|
+| **NVD** | 5 req/30초 | 50 req/30초 (API 키) |
+| **GitHub** | 60 req/시간 | **5,000 req/시간** (Token) |
+| **CISA** | 제한 없음 | - |
+
+### 캐싱 전략 (토큰 유무에 따라)
+
+```typescript
+// 토큰 있음: 1분 캐싱 (더 실시간)
+// 5,000 req/hour ÷ 180 req/hour (3생태계 × 60회) = 약 27배 여유
+
+// 토큰 없음: 5분 캐싱 (Rate Limit 보호)
+// 60 req/hour ÷ 36 req/hour (3생태계 × 12회) = 여유 있음
+```
+
+**Vercel 서버리스**: 캐시가 서버에서 공유되므로 토큰 없이도 안정적 운영 가능
 
 ## 프로젝트 구조
 
@@ -92,7 +134,8 @@ vuln-digest/
 │   │   └── StatsCards.tsx      # 통계 카드
 │   ├── report/
 │   │   ├── ReportViewer.tsx    # 마크다운 렌더링
-│   │   ├── ReportOptions.tsx   # 형식/기간/소스 선택
+│   │   ├── ReportOptions.tsx   # 형식/기간/소스/모델 선택
+│   │   ├── ModelSelector.tsx   # Claude 모델 선택 드롭다운
 │   │   ├── CopyButton.tsx      # 마크다운 복사 버튼
 │   │   └── GenerateButton.tsx  # 보고서 생성 버튼
 │   ├── layout/
@@ -104,10 +147,8 @@ vuln-digest/
 │   ├── sources/
 │   │   ├── index.ts            # 통합 인터페이스
 │   │   ├── nvd.ts              # NVD API 클라이언트
-│   │   ├── cisa.ts             # CISA KEV 클라이언트
-│   │   ├── github.ts           # GitHub Advisory 클라이언트
-│   │   ├── npm.ts              # npm Advisory 클라이언트
-│   │   └── osv.ts              # OSV API (PyPI, Maven)
+│   │   ├── cisa.ts             # CISA KEV 클라이언트 (fallback 포함)
+│   │   └── github.ts           # GitHub Advisory (npm/PyPI/Maven 통합)
 │   ├── claude.ts               # Claude API 래퍼
 │   ├── prompts.ts              # 보고서 생성 프롬프트
 │   ├── cache.ts                # 캐시 유틸리티
@@ -126,9 +167,23 @@ vuln-digest/
 // lib/types.ts
 
 export type VulnSource = 'nvd' | 'cisa' | 'github' | 'npm' | 'pypi' | 'maven';
+// npm, pypi, maven은 내부적으로 GitHub Advisory API 사용
+// github은 GitHub 자체 보안 이슈 (ecosystem 필터 없이 조회)
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'unknown';
 export type ReportType = 'summary' | 'detailed';
 export type DateRange = '24h' | 'week' | 'month';  // 기본값: 24h
+
+// Claude 모델 선택
+export type ClaudeModel = 
+  | 'claude-sonnet-4-20250514'      // Sonnet 4 (기본값 - 균형)
+  | 'claude-opus-4-20250514'        // Opus 4 (최고 품질)
+  | 'claude-haiku-3-5-20241022';    // Haiku 3.5 (빠름, 저렴)
+
+export const CLAUDE_MODELS: { id: ClaudeModel; name: string; description: string }[] = [
+  { id: 'claude-sonnet-4-20250514', name: 'Sonnet 4', description: '균형 잡힌 성능 (기본)' },
+  { id: 'claude-opus-4-20250514', name: 'Opus 4', description: '최고 품질, 복잡한 분석' },
+  { id: 'claude-haiku-3-5-20241022', name: 'Haiku 3.5', description: '빠른 응답, 비용 절약' },
+];
 
 export interface Vulnerability {
   id: string;                    // CVE-2024-XXXX 또는 GHSA-xxxx
@@ -140,6 +195,7 @@ export interface Vulnerability {
   affectedProducts: string[];
   publishedAt: string;           // ISO 8601
   url: string;                   // 원본 링크
+  _fallback?: boolean;           // CISA: 24시간 내 데이터 없을 때 최근 N건 표시용
 }
 
 export interface VulnQueryParams {
@@ -163,6 +219,7 @@ export interface ReportRequest {
   sources: VulnSource[];
   dateRange: DateRange;
   reportType: ReportType;
+  model?: ClaudeModel;            // 기본값: claude-sonnet-4-20250514
 }
 
 export interface Report {
@@ -173,6 +230,7 @@ export interface Report {
   meta: {
     totalVulnerabilities: number;
     sources: VulnSource[];
+    model: ClaudeModel;           // 사용된 모델 표시
   };
 }
 ```
@@ -225,9 +283,17 @@ Claude API로 보고서 생성
 {
   "sources": ["nvd", "cisa", "npm"],
   "dateRange": "24h",
-  "reportType": "summary"
+  "reportType": "summary",
+  "model": "claude-sonnet-4-20250514"  // 선택 (기본값: sonnet-4)
 }
 ```
+
+**모델 옵션:**
+| 모델 | 설명 | 용도 |
+|------|------|------|
+| `claude-sonnet-4-20250514` | Sonnet 4 (기본) | 일반 보고서 |
+| `claude-opus-4-20250514` | Opus 4 | 심층 분석, 복잡한 보고서 |
+| `claude-haiku-3-5-20241022` | Haiku 3.5 | 빠른 요약, 비용 절약 |
 
 **Response:**
 ```json
@@ -238,7 +304,8 @@ Claude API로 보고서 생성
   "markdown": "# 보안 취약점 브리핑 (최근 24시간)\n\n## 요약\n...",
   "meta": {
     "totalVulnerabilities": 42,
-    "sources": ["nvd", "cisa", "npm"]
+    "sources": ["nvd", "cisa", "npm"],
+    "model": "claude-sonnet-4-20250514"
   }
 }
 ```
@@ -334,14 +401,21 @@ border-border-hover    /* #3a3a5a */
 ### 1. 메인 대시보드 (`/`)
 - 상단: 통계 카드 (24시간 내 신규, Critical 수, 소스별 현황)
 - 중단: 소스별 탭 + 취약점 목록 **(기본: 24시간 내 취약점만 표시)**
+   - 탭: 전체 | NVD | CISA KEV | npm | PyPI | Maven
+   - CISA에 "(최근 추가)" 라벨 표시 (fallback 시)
 - 우측 또는 하단: 심각도 차트
 - 플로팅: "보고서 생성" 버튼
 - 기간 필터: 24시간 (기본) / 1주일 / 1개월
 
 ### 2. 보고서 페이지 (`/report`)
-- 좌측: 옵션 패널 (소스, 기간, 형식 선택)
+- 좌측: 옵션 패널
+   - 소스 선택 (NVD, CISA, npm, PyPI, Maven)
+   - 기간 선택 (24시간, 1주일, 1개월)
+   - 형식 선택 (요약/상세)
+   - **모델 선택** (Sonnet 4 / Opus 4 / Haiku 3.5)
 - 우측: 보고서 뷰어 (마크다운 렌더링)
 - 상단 우측: "마크다운 복사" 버튼
+- 하단: 사용된 모델 표시
 - 생성 중: 로딩 스피너 + 스트리밍 표시
 
 ## Claude 보고서 프롬프트
@@ -391,14 +465,47 @@ border-border-hover    /* #3a3a5a */
 # 필수
 ANTHROPIC_API_KEY=sk-ant-...
 
-# 선택 (Rate Limit 완화)
+# 권장 (Rate Limit 완화 + 캐싱 주기 단축)
+GITHUB_TOKEN=ghp_xxxxxxxxxxxx    # GitHub Advisory API (npm/PyPI/Maven)
 NVD_API_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 
 # 설정
-CACHE_TTL=300                    # 캐시 유지 시간 (초)
+CACHE_TTL=300                    # 캐시 유지 시간 (초) - 토큰 있으면 60으로 단축 가능
 DEFAULT_VULN_LIMIT=100           # 기본 조회 개수
+DEFAULT_MODEL=claude-sonnet-4-20250514  # 기본 Claude 모델
 ```
+
+### GitHub Token 효과
+
+| 항목 | 토큰 없음 | 토큰 있음 |
+|------|----------|----------|
+| Rate Limit | 60 req/hour | **5,000 req/hour** |
+| 캐싱 주기 | 5분 (필수) | **1분 가능** |
+| 생태계 확장 | 제한적 | Go, Rust 등 추가 여유 |
+| 안정성 | Rate Limit 에러 가능 | 거의 무제한 |
+
+### Claude 모델 비교
+
+| 모델 | 속도 | 품질 | 비용 | 권장 용도 |
+|------|------|------|------|----------|
+| **Haiku 3.5** | ⚡ 매우 빠름 | 보통 | 💰 저렴 | 빠른 요약, 테스트 |
+| **Sonnet 4** | 빠름 | 좋음 | 💰💰 중간 | 일반 보고서 (기본) |
+| **Opus 4** | 보통 | 최고 | 💰💰💰 높음 | 심층 분석, 중요 보고서 |
+
+### 토큰 유무에 따른 캐싱 전략
+
+```typescript
+// lib/cache.ts
+export const CACHE_TTL = process.env.GITHUB_TOKEN 
+  ? 60      // 1분 (토큰 있음 - 더 실시간)
+  : 300;    // 5분 (토큰 없음 - Rate Limit 보호)
+```
+
+### GitHub Token 발급
+1. GitHub → Settings → Developer settings → Personal access tokens
+2. "Generate new token (classic)" 선택
+3. 권한: `public_repo` (읽기 전용이면 권한 없이도 가능)
+4. 발급된 토큰을 `GITHUB_TOKEN`에 설정
 
 ## 패키지 버전
 
@@ -499,15 +606,17 @@ chore: 빌드, 설정 변경
 
 ### Phase 2: 데이터 수집 (Day 1-2)
 - [ ] NVD 클라이언트 구현
-- [ ] CISA 클라이언트 구현
+- [ ] CISA 클라이언트 구현 (fallback 포함)
+- [ ] GitHub Advisory 클라이언트 (npm/PyPI/Maven 통합)
 - [ ] /api/vulnerabilities 엔드포인트
 - [ ] 캐싱 적용
 
 ### Phase 3: 대시보드 UI (Day 2)
 - [ ] 통계 카드
-- [ ] 소스별 탭
+- [ ] 소스별 탭 (전체/NVD/CISA/npm/PyPI/Maven)
 - [ ] 취약점 목록
 - [ ] 심각도 차트
+- [ ] CISA fallback 라벨 표시
 
 ### Phase 4: 보고서 생성 (Day 2-3)
 - [ ] Claude API 연동
@@ -516,31 +625,167 @@ chore: 빌드, 설정 변경
 - [ ] 보고서 뷰어 UI
 - [ ] 마크다운 복사 기능
 
-### Phase 5: 추가 소스 (Day 3)
-- [ ] npm Advisory 연동
-- [ ] OSV (PyPI, Maven) 연동
-- [ ] GitHub Advisory 연동
-
-### Phase 6: 마무리 (Day 3)
+### Phase 5: 마무리 (Day 3)
 - [ ] 에러 처리 보강
 - [ ] 로딩/스켈레톤 UI
 - [ ] 반응형 점검
-- [ ] Docker 설정
+- [ ] 빈 상태 UI (데이터 없을 때)
+
+## 데이터 수집 로직
+
+### CISA KEV - Fallback 처리
+
+CISA KEV는 업데이트 빈도가 낮아 24시간 내 데이터가 없을 수 있음:
+
+```typescript
+// lib/sources/cisa.ts
+const CISA_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+
+export async function fetchCISA(dateRange: DateRange): Promise<Vulnerability[]> {
+  const response = await fetch(CISA_URL, { next: { revalidate: 300 } });
+  const data = await response.json();
+  
+  const filtered = filterByDate(data.vulnerabilities, dateRange);
+  
+  // ⚠️ Fallback: 24시간 내 데이터 없으면 최근 5건 표시
+  if (filtered.length === 0 && dateRange === '24h') {
+    const recent = data.vulnerabilities
+      .sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
+      .slice(0, 5);
+    
+    return recent.map(v => ({
+      ...normalize(v),
+      _fallback: true  // UI에서 "최근 추가" 표시용
+    }));
+  }
+  
+  return filtered.map(normalize);
+}
+```
+
+### GitHub Advisory - 생태계별 통합 조회
+
+```typescript
+// lib/sources/github.ts
+import { CACHE_TTL } from '../cache';
+
+type Ecosystem = 'npm' | 'pip' | 'maven' | 'go' | 'rubygems';
+
+const GITHUB_API = 'https://api.github.com/advisories';
+
+export async function fetchGitHubAdvisories(
+  ecosystem: Ecosystem,
+  dateRange: DateRange
+): Promise<Vulnerability[]> {
+  const since = getDateRangeISO(dateRange);
+  
+  const headers: HeadersInit = {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+  
+  // 토큰 있으면 추가 (Rate Limit 5,000/hour)
+  if (process.env.GITHUB_TOKEN) {
+    headers['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+  
+  const response = await fetch(
+    `${GITHUB_API}?ecosystem=${ecosystem}&published=${since}..&per_page=100`,
+    {
+      headers,
+      next: { revalidate: CACHE_TTL }  // 토큰 유무에 따라 60초 or 300초
+    }
+  );
+  
+  if (!response.ok) {
+    console.error(`GitHub API error: ${response.status}`);
+    return [];
+  }
+  
+  const data = await response.json();
+  return data.map(normalizeGitHubAdvisory);
+}
+
+// 모든 생태계 병렬 조회
+export async function fetchAllEcosystems(dateRange: DateRange) {
+  const ecosystems: Ecosystem[] = ['npm', 'pip', 'maven'];
+  
+  const results = await Promise.allSettled(
+    ecosystems.map(eco => fetchGitHubAdvisories(eco, dateRange))
+  );
+  
+  return {
+    npm: results[0].status === 'fulfilled' ? results[0].value : [],
+    pypi: results[1].status === 'fulfilled' ? results[1].value : [],
+    maven: results[2].status === 'fulfilled' ? results[2].value : [],
+  };
+}
+```
+
+### 통합 데이터 수집
+
+```typescript
+// lib/sources/index.ts
+export async function fetchAllVulnerabilities(
+  sources: VulnSource[],
+  dateRange: DateRange
+): Promise<VulnResponse> {
+  const fetchers: Record<VulnSource, () => Promise<Vulnerability[]>> = {
+    nvd: () => fetchNVD(dateRange),
+    cisa: () => fetchCISA(dateRange),
+    github: () => fetchGitHubAdvisories('npm', dateRange), // GitHub 자체
+    npm: () => fetchGitHubAdvisories('npm', dateRange),
+    pypi: () => fetchGitHubAdvisories('pip', dateRange),
+    maven: () => fetchGitHubAdvisories('maven', dateRange),
+  };
+  
+  const results = await Promise.allSettled(
+    sources.map(source => fetchers[source]())
+  );
+  
+  const data: Vulnerability[] = [];
+  const sourceCounts: Record<VulnSource, number> = {} as any;
+  
+  results.forEach((result, idx) => {
+    const source = sources[idx];
+    if (result.status === 'fulfilled') {
+      data.push(...result.value);
+      sourceCounts[source] = result.value.length;
+    } else {
+      console.error(`Failed to fetch ${source}:`, result.reason);
+      sourceCounts[source] = 0;
+    }
+  });
+  
+  return {
+    data: deduplicateByCVE(data),
+    meta: {
+      total: data.length,
+      sources: sourceCounts,
+      severities: countBySeverity(data),
+      fetchedAt: new Date().toISOString()
+    }
+  };
+}
+```
 
 ## 주의사항
 
-1. **Rate Limit**: 외부 API 호출 시 반드시 캐싱 적용
-2. **API 키 노출 금지**: 환경 변수로만 관리
-3. **에러 메시지**: 사용자에게 기술적 세부사항 노출 금지
-4. **한국어**: 모든 UI 텍스트 및 보고서는 한국어로
-5. **접근성**: 적절한 contrast ratio 유지 (밤하늘 테마에서도)
+1. **GitHub Token 권장**: 토큰 있으면 캐싱 1분, 없으면 5분 (Rate Limit 60 req/hour 보호)
+2. **CISA KEV Fallback**: 24시간 내 데이터 없으면 최근 5건 표시 (UI에 "최근 추가" 라벨)
+3. **Rate Limit**: 외부 API 호출 시 반드시 캐싱 적용 (토큰 유무에 따라 TTL 조정)
+4. **API 키 노출 금지**: 환경 변수로만 관리, 클라이언트에 노출 금지
+5. **에러 메시지**: 사용자에게 기술적 세부사항 노출 금지
+6. **한국어**: 모든 UI 텍스트 및 보고서는 한국어로
+7. **접근성**: 적절한 contrast ratio 유지 (밤하늘 테마에서도)
+8. **중복 제거**: 여러 소스에서 같은 CVE 가져올 수 있음 - deduplication 필수
 
 ## 참고 링크
 
 - [NVD API 문서](https://nvd.nist.gov/developers/vulnerabilities)
 - [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)
-- [GitHub Advisory API](https://docs.github.com/en/rest/security-advisories)
-- [OSV API](https://google.github.io/osv.dev/api/)
+- [GitHub Advisory API](https://docs.github.com/en/rest/security-advisories/global-advisories)
+- [GitHub Advisory Database](https://github.com/advisories)
 - [Anthropic Claude API](https://docs.anthropic.com/claude/reference/messages_post)
 - [Next.js App Router](https://nextjs.org/docs/app)
 - [Tailwind CSS v4](https://tailwindcss.com/docs/v4-beta)
@@ -567,11 +812,11 @@ chore: 빌드, 설정 변경
 
 Vercel Dashboard → Project → Settings → Environment Variables
 
-| 변수명 | 환경 | 설명 |
-|--------|------|------|
-| `ANTHROPIC_API_KEY` | Production, Preview | Claude API 키 (필수) |
-| `NVD_API_KEY` | Production, Preview | NVD API 키 (선택) |
-| `GITHUB_TOKEN` | Production, Preview | GitHub 토큰 (선택) |
+| 변수명 | 환경 | 필수 | 설명 |
+|--------|------|------|------|
+| `ANTHROPIC_API_KEY` | Production, Preview | ✅ | Claude API 키 |
+| `GITHUB_TOKEN` | Production, Preview | 권장 | Rate Limit 완화 + 캐싱 주기 단축 |
+| `NVD_API_KEY` | Production, Preview | 권장 | NVD Rate Limit 완화 |
 
 ### 캐싱 전략 (Vercel 최적화)
 
@@ -625,14 +870,24 @@ export const maxDuration = 60; // Pro Plan: 최대 60초
 ```typescript
 // app/api/report/generate/route.ts
 import Anthropic from '@anthropic-ai/sdk';
+import { ClaudeModel } from '@/lib/types';
+
+const DEFAULT_MODEL: ClaudeModel = 'claude-sonnet-4-20250514';
 
 export async function POST(req: Request) {
-  const { sources, dateRange, reportType } = await req.json();
+  const { sources, dateRange, reportType, model } = await req.json();
+  
+  // 모델 유효성 검사
+  const selectedModel: ClaudeModel = [
+    'claude-sonnet-4-20250514',
+    'claude-opus-4-20250514', 
+    'claude-haiku-3-5-20241022'
+  ].includes(model) ? model : DEFAULT_MODEL;
   
   const anthropic = new Anthropic();
   
   const stream = await anthropic.messages.stream({
-    model: 'claude-sonnet-4-20250514',
+    model: selectedModel,
     max_tokens: 4096,
     messages: [{ role: 'user', content: prompt }]
   });
@@ -640,7 +895,8 @@ export async function POST(req: Request) {
   return new Response(stream.toReadableStream(), {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache'
+      'Cache-Control': 'no-cache',
+      'X-Model-Used': selectedModel  // 사용된 모델 헤더로 전달
     }
   });
 }
@@ -670,8 +926,8 @@ vercel --prod
 1. Vercel Dashboard → Project → Settings → Domains
 2. 커스텀 도메인 추가 (예: vuln.example.com)
 3. DNS 설정:
-    - CNAME: `cname.vercel-dns.com`
-    - 또는 A: `76.76.21.21`
+   - CNAME: `cname.vercel-dns.com`
+   - 또는 A: `76.76.21.21`
 
 ### 모니터링
 
@@ -685,14 +941,14 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export default function RootLayout({ children }) {
-  return (
-    <html>
-      <body>
-        {children}
-        <Analytics />
-        <SpeedInsights />
-      </body>
-    </html>
-  );
+   return (
+           <html>
+                   <body>
+                           {children}
+           <Analytics />
+           <SpeedInsights />
+           </body>
+           </html>
+   );
 }
 ```
