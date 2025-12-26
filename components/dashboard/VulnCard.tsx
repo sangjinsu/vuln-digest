@@ -16,6 +16,7 @@ export default function VulnCard({ vulnerability }: VulnCardProps) {
     affectedProducts,
     publishedAt,
     url,
+    _fallback,
   } = vulnerability;
 
   const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
@@ -52,6 +53,13 @@ export default function VulnCard({ vulnerability }: VulnCardProps) {
           <span className="rounded-full bg-bg-secondary px-2 py-0.5 text-xs text-text-muted">
             {sourceInfo.name}
           </span>
+
+          {/* Fallback 라벨 (CISA 24시간 내 데이터 없을 때) */}
+          {_fallback && (
+            <span className="rounded-full bg-severity-medium/20 px-2 py-0.5 text-xs text-severity-medium">
+              최근 추가
+            </span>
+          )}
         </div>
 
         {/* 날짜 */}
