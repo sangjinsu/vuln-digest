@@ -98,18 +98,8 @@ export async function fetchVulnerabilities(
     }
   }
 
-  // 중복 제거 (같은 CVE ID가 NVD와 CISA 양쪽에 있을 수 있음)
-  const uniqueVulns = new Map<string, Vulnerability>();
-  for (const vuln of allVulnerabilities) {
-    const existing = uniqueVulns.get(vuln.id);
-    // NVD 데이터 우선 (더 상세한 정보 포함)
-    if (!existing || (existing.source === 'cisa' && vuln.source === 'nvd')) {
-      uniqueVulns.set(vuln.id, vuln);
-    }
-  }
-
-  // 날짜순 정렬 (최신순)
-  let vulnerabilities = Array.from(uniqueVulns.values()).sort(
+  // 날짜순 정렬 (최신순) - 같은 CVE도 소스별로 별도 표시
+  let vulnerabilities = allVulnerabilities.sort(
     (a, b) =>
       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
