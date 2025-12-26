@@ -1,23 +1,26 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { LLMProvider, LLMStreamEvent, LLM_PROVIDERS } from './types';
+import { LLMProvider, LLMStreamEvent, getDefaultModel } from './types';
 
 export async function* createLLMStream(
   provider: LLMProvider,
   apiKey: string,
   prompt: string,
-  maxTokens: number = 4096
+  maxTokens: number = 4096,
+  model?: string
 ): AsyncGenerator<LLMStreamEvent> {
+  const selectedModel = model || getDefaultModel(provider);
+
   switch (provider) {
     case 'claude':
-      yield* claudeStream(apiKey, prompt, maxTokens);
+      yield* claudeStream(apiKey, prompt, maxTokens, selectedModel);
       break;
     case 'openai':
-      yield* openaiStream(apiKey, prompt, maxTokens);
+      yield* openaiStream(apiKey, prompt, maxTokens, selectedModel);
       break;
     case 'gemini':
-      yield* geminiStream(apiKey, prompt);
+      yield* geminiStream(apiKey, prompt, selectedModel);
       break;
     default:
       yield { type: 'error', error: `지원하지 않는 LLM: ${provider}` };
@@ -27,12 +30,13 @@ export async function* createLLMStream(
 async function* claudeStream(
   apiKey: string,
   prompt: string,
-  maxTokens: number
+  maxTokens: number,
+  model: string
 ): AsyncGenerator<LLMStreamEvent> {
   try {
     const anthropic = new Anthropic({ apiKey });
     const stream = await anthropic.messages.stream({
-      model: LLM_PROVIDERS.claude.model,
+      model,
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -54,12 +58,13 @@ async function* claudeStream(
 async function* openaiStream(
   apiKey: string,
   prompt: string,
-  maxTokens: number
+  maxTokens: number,
+  model: string
 ): AsyncGenerator<LLMStreamEvent> {
   try {
     const openai = new OpenAI({ apiKey });
     const stream = await openai.chat.completions.create({
-      model: LLM_PROVIDERS.openai.model,
+      model,
       max_tokens: maxTokens,
       stream: true,
       messages: [{ role: 'user', content: prompt }],
@@ -79,12 +84,13 @@ async function* openaiStream(
 
 async function* geminiStream(
   apiKey: string,
-  prompt: string
+  prompt: string,
+  modelId: string
 ): AsyncGenerator<LLMStreamEvent> {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: LLM_PROVIDERS.gemini.model,
+      model: modelId,
     });
     const result = await model.generateContentStream(prompt);
 

@@ -19,6 +19,7 @@ interface ValidatedRequest {
   reportType: ReportType;
   llm: {
     provider: LLMProvider;
+    model?: string;
     apiKey: string;
   };
 }
@@ -50,7 +51,7 @@ function validateRequest(body: unknown): ValidatedRequest {
     throw new Error('LLM 설정이 필요합니다');
   }
 
-  const { provider, apiKey } = llm as Record<string, unknown>;
+  const { provider, model, apiKey } = llm as Record<string, unknown>;
 
   if (!VALID_LLM_PROVIDERS.includes(provider as LLMProvider)) {
     throw new Error('지원하지 않는 LLM입니다');
@@ -66,6 +67,7 @@ function validateRequest(body: unknown): ValidatedRequest {
     reportType: validReportType,
     llm: {
       provider: provider as LLMProvider,
+      model: typeof model === 'string' ? model : undefined,
       apiKey: apiKey as string,
     },
   };
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
     const prompt = getReportPrompt(vulnResponse.data, reportType, dateRange);
 
     // LLM 스트리밍 호출 (통합 인터페이스)
-    const stream = createLLMStream(llm.provider, llm.apiKey, prompt);
+    const stream = createLLMStream(llm.provider, llm.apiKey, prompt, 4096, llm.model);
 
     // SSE 스트림 생성
     const encoder = new TextEncoder();

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { VulnSource, DateRange, ReportType } from '@/lib/types';
-import { LLMProvider } from '@/lib/llm';
+import { LLMProvider, LLM_PROVIDERS } from '@/lib/llm';
 import ReportOptions from '@/components/report/ReportOptions';
 import ReportViewer from '@/components/report/ReportViewer';
 
@@ -11,6 +11,7 @@ export default function ReportPage() {
   const [dateRange, setDateRange] = useState<DateRange>('24h');
   const [reportType, setReportType] = useState<ReportType>('summary');
   const [llmProvider, setLLMProvider] = useState<LLMProvider>('claude');
+  const [model, setModel] = useState<string>(LLM_PROVIDERS.claude.defaultModel);
   const [apiKey, setApiKey] = useState('');
   const [markdown, setMarkdown] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,6 +39,7 @@ export default function ReportPage() {
           reportType,
           llm: {
             provider: llmProvider,
+            model,
             apiKey,
           },
         }),
@@ -93,7 +95,7 @@ export default function ReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [sources, dateRange, reportType, llmProvider, apiKey]);
+  }, [sources, dateRange, reportType, llmProvider, model, apiKey]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -121,11 +123,13 @@ export default function ReportPage() {
             dateRange={dateRange}
             reportType={reportType}
             llmProvider={llmProvider}
+            model={model}
             apiKey={apiKey}
             onSourcesChange={setSources}
             onDateRangeChange={setDateRange}
             onReportTypeChange={setReportType}
             onLLMProviderChange={setLLMProvider}
+            onModelChange={setModel}
             onApiKeyChange={setApiKey}
             onGenerate={handleGenerate}
             loading={loading}
