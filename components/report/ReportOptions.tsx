@@ -20,7 +20,7 @@ interface ReportOptionsProps {
   loading: boolean;
 }
 
-const AVAILABLE_SOURCES: VulnSource[] = ['nvd', 'cisa'];
+const AVAILABLE_SOURCES: VulnSource[] = ['nvd', 'cisa', 'github', 'pypi', 'maven'];
 
 const DATE_RANGES: { value: DateRange; label: string }[] = [
   { value: '24h', label: '24시간' },
