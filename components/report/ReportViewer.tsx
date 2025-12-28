@@ -12,28 +12,34 @@ interface ReportViewerProps {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-text-muted">
-      <FileText className="h-16 w-16 mb-4 opacity-50" />
-      <p className="text-lg">보고서가 없습니다</p>
-      <p className="text-sm mt-1">옵션을 선택하고 보고서를 생성해주세요</p>
+    <div className="flex flex-col items-center justify-center py-12 text-text-muted animate-fade-in-up">
+      <FileText className="h-12 w-12 mb-3 opacity-50" />
+      <p className="text-base">보고서가 없습니다</p>
+      <p className="text-sm mt-1 opacity-70">옵션을 선택하고 보고서를 생성해주세요</p>
     </div>
   );
 }
 
 function LoadingState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16">
-      <Sparkles className="h-16 w-16 text-star-purple animate-pulse mb-4" />
-      <p className="text-lg text-star">AI가 보고서를 작성하고 있습니다...</p>
+    <div className="flex flex-col items-center justify-center py-12 animate-fade-in-up">
+      <Sparkles className="h-12 w-12 text-star-purple animate-pulse mb-3" />
+      <p className="text-base text-star">AI가 보고서를 작성하고 있습니다...</p>
       <p className="text-sm text-text-muted mt-1">잠시만 기다려주세요</p>
     </div>
+  );
+}
+
+function TypingCursor() {
+  return (
+    <span className="inline-block text-star-purple animate-blink ml-0.5">▌</span>
   );
 }
 
 export default function ReportViewer({ markdown, loading }: ReportViewerProps) {
   if (loading && !markdown) {
     return (
-      <div className="rounded-lg border border-border-default bg-bg-card p-6">
+      <div className="rounded-lg border border-border-default bg-bg-card p-4">
         <LoadingState />
       </div>
     );
@@ -41,58 +47,58 @@ export default function ReportViewer({ markdown, loading }: ReportViewerProps) {
 
   if (!markdown && !loading) {
     return (
-      <div className="rounded-lg border border-border-default bg-bg-card p-6">
+      <div className="rounded-lg border border-border-default bg-bg-card p-4">
         <EmptyState />
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-border-default bg-bg-card">
+    <div className="rounded-lg border border-border-default bg-bg-card animate-fade-in-up">
       {/* 헤더 */}
-      <div className="flex items-center justify-between border-b border-border-default p-4">
-        <h2 className="text-lg font-semibold text-star flex items-center gap-2">
-          <FileText className="h-5 w-5" />
+      <div className="flex items-center justify-between border-b border-border-default px-4 py-3">
+        <h2 className="text-base font-semibold text-star flex items-center gap-2">
+          <FileText className="h-4 w-4" />
           생성된 보고서
           {loading && (
-            <Sparkles className="h-4 w-4 text-star-purple animate-pulse" />
+            <Sparkles className="h-3.5 w-3.5 text-star-purple animate-pulse" />
           )}
         </h2>
         <CopyButton text={markdown} />
       </div>
 
       {/* 마크다운 컨텐츠 */}
-      <div className="p-6 prose prose-invert max-w-none">
+      <div className="p-4 prose prose-invert max-w-none">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
             h1: ({ children }) => (
-              <h1 className="text-2xl font-bold text-star mb-4 pb-2 border-b border-border-default">
+              <h1 className="text-xl font-bold text-star mb-3 pb-2 border-b border-border-default">
                 {children}
               </h1>
             ),
             h2: ({ children }) => (
-              <h2 className="text-xl font-semibold text-star mt-6 mb-3">
+              <h2 className="text-lg font-semibold text-star mt-5 mb-2">
                 {children}
               </h2>
             ),
             h3: ({ children }) => (
-              <h3 className="text-lg font-medium text-star-blue mt-4 mb-2">
+              <h3 className="text-base font-medium text-star-blue mt-3 mb-1.5">
                 {children}
               </h3>
             ),
             p: ({ children }) => (
-              <p className="text-text-secondary mb-3 leading-relaxed">
+              <p className="text-text-secondary mb-2.5 leading-relaxed text-sm">
                 {children}
               </p>
             ),
             ul: ({ children }) => (
-              <ul className="list-disc list-inside text-text-secondary mb-3 space-y-1">
+              <ul className="list-disc list-inside text-text-secondary mb-2.5 space-y-0.5 text-sm">
                 {children}
               </ul>
             ),
             ol: ({ children }) => (
-              <ol className="list-decimal list-inside text-text-secondary mb-3 space-y-1">
+              <ol className="list-decimal list-inside text-text-secondary mb-2.5 space-y-0.5 text-sm">
                 {children}
               </ol>
             ),
@@ -104,40 +110,40 @@ export default function ReportViewer({ markdown, loading }: ReportViewerProps) {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-star-blue hover:text-star-cyan underline"
+                className="text-star-blue hover:text-star-cyan underline transition-colors"
               >
                 {children}
               </a>
             ),
             code: ({ children }) => (
-              <code className="bg-bg-secondary px-1.5 py-0.5 rounded text-star-cyan text-sm font-mono">
+              <code className="bg-bg-secondary px-1 py-0.5 rounded text-star-cyan text-xs font-mono">
                 {children}
               </code>
             ),
             pre: ({ children }) => (
-              <pre className="bg-bg-secondary p-4 rounded-lg overflow-x-auto mb-3">
+              <pre className="bg-bg-secondary p-3 rounded-lg overflow-x-auto mb-2.5 text-sm">
                 {children}
               </pre>
             ),
             blockquote: ({ children }) => (
-              <blockquote className="border-l-4 border-star-purple pl-4 italic text-text-muted my-3">
+              <blockquote className="border-l-2 border-star-purple pl-3 italic text-text-muted my-2.5 text-sm">
                 {children}
               </blockquote>
             ),
             table: ({ children }) => (
-              <div className="overflow-x-auto mb-3">
-                <table className="min-w-full divide-y divide-border-default">
+              <div className="overflow-x-auto mb-2.5">
+                <table className="min-w-full divide-y divide-border-default text-sm">
                   {children}
                 </table>
               </div>
             ),
             th: ({ children }) => (
-              <th className="px-4 py-2 text-left text-sm font-medium text-star bg-bg-secondary">
+              <th className="px-3 py-1.5 text-left text-xs font-medium text-star bg-bg-secondary">
                 {children}
               </th>
             ),
             td: ({ children }) => (
-              <td className="px-4 py-2 text-sm text-text-secondary border-t border-border-default">
+              <td className="px-3 py-1.5 text-sm text-text-secondary border-t border-border-default">
                 {children}
               </td>
             ),
@@ -148,6 +154,7 @@ export default function ReportViewer({ markdown, loading }: ReportViewerProps) {
         >
           {markdown}
         </ReactMarkdown>
+        {loading && <TypingCursor />}
       </div>
     </div>
   );

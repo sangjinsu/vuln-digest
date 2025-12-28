@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { FileText, Sparkles, Eye, EyeOff, ChevronDown, Settings } from 'lucide-react';
 import { VulnSource, DateRange, ReportType, SOURCE_INFO } from '@/lib/types';
 import { LLMProvider, LLM_PROVIDERS, LLM_MODELS } from '@/lib/llm';
 
@@ -30,9 +30,9 @@ const DATE_RANGES: { value: DateRange; label: string }[] = [
   { value: 'month', label: '1개월' },
 ];
 
-const REPORT_TYPES: { value: ReportType; label: string; description: string }[] = [
-  { value: 'summary', label: '요약', description: '핵심 내용만 간결하게' },
-  { value: 'detailed', label: '상세', description: '전체 분석 및 권장사항' },
+const REPORT_TYPES: { value: ReportType; label: string }[] = [
+  { value: 'summary', label: '요약' },
+  { value: 'detailed', label: '상세' },
 ];
 
 export default function ReportOptions({
@@ -52,6 +52,7 @@ export default function ReportOptions({
   loading,
 }: ReportOptionsProps) {
   const [showApiKey, setShowApiKey] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const availableModels = LLM_MODELS[llmProvider];
 
   const handleSourceToggle = (source: VulnSource) => {
@@ -67,58 +68,41 @@ export default function ReportOptions({
   const isGenerateDisabled = loading || sources.length === 0 || !apiKey.trim();
 
   return (
-    <div className="rounded-lg border border-border-default bg-bg-card p-6">
-      <h2 className="text-lg font-semibold text-star mb-6">보고서 옵션</h2>
-
-      {/* AI Provider 선택 */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-text-secondary mb-3">
-          AI Provider
-        </label>
-        <div className="space-y-2">
-          {Object.values(LLM_PROVIDERS).map((provider) => (
-            <label
-              key={provider.id}
-              className={`
-                flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors
-                ${
-                  llmProvider === provider.id
-                    ? 'bg-star-purple/20 border border-star-purple'
-                    : 'bg-bg-secondary border border-transparent hover:border-border-hover'
-                }
-              `}
-            >
-              <input
-                type="radio"
-                name="llmProvider"
-                value={provider.id}
-                checked={llmProvider === provider.id}
-                onChange={() => {
-                  onLLMProviderChange(provider.id);
-                  onModelChange(provider.defaultModel);
-                }}
-                className="h-4 w-4 text-star-purple focus:ring-star-purple"
-              />
-              <div className="flex-1">
-                <span className="text-sm font-medium text-star">{provider.name}</span>
-                <p className="text-xs text-text-muted">{provider.description}</p>
-              </div>
-            </label>
-          ))}
-        </div>
+    <div className="rounded-lg border border-border-default bg-bg-card p-4">
+      {/* Provider 탭 */}
+      <div className="flex rounded-lg bg-bg-secondary p-1 mb-4">
+        {Object.values(LLM_PROVIDERS).map((provider) => (
+          <button
+            key={provider.id}
+            onClick={() => {
+              onLLMProviderChange(provider.id);
+              onModelChange(provider.defaultModel);
+            }}
+            className={`
+              flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 active:scale-95
+              ${
+                llmProvider === provider.id
+                  ? 'bg-star-purple text-white shadow-sm shadow-star-purple/30'
+                  : 'text-text-secondary hover:text-star hover:bg-bg-card/50'
+              }
+            `}
+          >
+            {provider.name}
+          </button>
+        ))}
       </div>
 
       {/* 모델 선택 */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-text-secondary mb-3">
-          모델 선택
+      <div className="mb-4">
+        <label className="block text-xs font-medium text-text-muted mb-1.5">
+          모델
         </label>
         <select
           value={model}
           onChange={(e) => onModelChange(e.target.value)}
           className="w-full rounded-lg border border-border-default bg-bg-secondary
-                     px-4 py-2.5 text-sm text-star
-                     focus:border-star-purple focus:outline-none focus:ring-1 focus:ring-star-purple"
+                     px-3 py-2 text-sm text-star
+                     focus:border-star-purple focus:outline-none transition-colors"
         >
           {availableModels.map((m) => (
             <option key={m.id} value={m.id}>
@@ -128,118 +112,131 @@ export default function ReportOptions({
         </select>
       </div>
 
-      {/* API 키 입력 */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-text-secondary mb-3">
-          API 키
+      {/* 보고서 형식 */}
+      <div className="mb-4">
+        <label className="block text-xs font-medium text-text-muted mb-1.5">
+          형식
         </label>
-        <div className="relative">
-          <input
-            type={showApiKey ? 'text' : 'password'}
-            value={apiKey}
-            onChange={(e) => onApiKeyChange(e.target.value)}
-            placeholder={LLM_PROVIDERS[llmProvider].keyPlaceholder}
-            className="w-full rounded-lg border border-border-default bg-bg-secondary
-                       px-4 py-2.5 pr-12 text-sm text-star placeholder:text-text-muted
-                       focus:border-star-purple focus:outline-none focus:ring-1 focus:ring-star-purple"
-          />
-          <button
-            type="button"
-            onClick={() => setShowApiKey(!showApiKey)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-star transition-colors"
-          >
-            {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-text-muted">
-          API 키는 서버에 저장되지 않습니다
-        </p>
-      </div>
-
-      {/* 데이터 소스 */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-text-secondary mb-3">
-          데이터 소스
-        </label>
-        <div className="space-y-2">
-          {AVAILABLE_SOURCES.map((source) => (
-            <label
-              key={source}
-              className="flex items-center gap-3 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={sources.includes(source)}
-                onChange={() => handleSourceToggle(source)}
-                className="h-4 w-4 rounded border-border-default bg-bg-secondary text-star-purple focus:ring-star-purple"
-              />
-              <span className="text-sm text-star">{SOURCE_INFO[source].name}</span>
-              <span className="text-xs text-text-muted">
-                {SOURCE_INFO[source].description}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* 기간 선택 */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-text-secondary mb-3">
-          분석 기간
-        </label>
-        <div className="flex gap-2">
-          {DATE_RANGES.map((range) => (
+        <div className="flex rounded-lg bg-bg-secondary p-1">
+          {REPORT_TYPES.map((type) => (
             <button
-              key={range.value}
-              onClick={() => onDateRangeChange(range.value)}
+              key={type.value}
+              onClick={() => onReportTypeChange(type.value)}
               className={`
-                flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+                flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 active:scale-95
                 ${
-                  dateRange === range.value
-                    ? 'bg-star-purple text-white'
-                    : 'bg-bg-secondary text-text-secondary hover:text-star'
+                  reportType === type.value
+                    ? 'bg-bg-card text-star shadow-sm'
+                    : 'text-text-secondary hover:text-star'
                 }
               `}
             >
-              {range.label}
+              {type.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* 보고서 형식 */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-text-secondary mb-3">
-          보고서 형식
-        </label>
-        <div className="space-y-2">
-          {REPORT_TYPES.map((type) => (
-            <label
-              key={type.value}
-              className={`
-                flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors
-                ${
-                  reportType === type.value
-                    ? 'bg-star-purple/20 border border-star-purple'
-                    : 'bg-bg-secondary border border-transparent hover:border-border-hover'
-                }
-              `}
-            >
-              <input
-                type="radio"
-                name="reportType"
-                value={type.value}
-                checked={reportType === type.value}
-                onChange={() => onReportTypeChange(type.value)}
-                className="h-4 w-4 text-star-purple focus:ring-star-purple"
-              />
-              <div>
-                <span className="text-sm font-medium text-star">{type.label}</span>
-                <p className="text-xs text-text-muted">{type.description}</p>
+      {/* 고급 설정 아코디언 */}
+      <div className="mb-4 border-t border-border-default pt-4">
+        <button
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+          className="flex items-center justify-between w-full text-sm font-medium text-text-secondary hover:text-star transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            고급 설정
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 transition-transform duration-200 ${
+              advancedOpen ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+
+        {advancedOpen && (
+          <div className="mt-3 space-y-4 animate-slide-down">
+            {/* API 키 입력 */}
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1.5">
+                API 키
+              </label>
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => onApiKeyChange(e.target.value)}
+                  placeholder={LLM_PROVIDERS[llmProvider].keyPlaceholder}
+                  className="w-full rounded-lg border border-border-default bg-bg-secondary
+                             px-3 py-2 pr-10 text-sm text-star placeholder:text-text-muted
+                             focus:border-star-purple focus:outline-none transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-star transition-colors"
+                >
+                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-            </label>
-          ))}
-        </div>
+            </div>
+
+            {/* 데이터 소스 */}
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1.5">
+                데이터 소스
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {AVAILABLE_SOURCES.map((source) => (
+                  <label
+                    key={source}
+                    className={`
+                      flex items-center gap-1.5 px-2.5 py-1.5 rounded-md cursor-pointer text-sm transition-all
+                      ${
+                        sources.includes(source)
+                          ? 'bg-star-purple/20 text-star border border-star-purple/50'
+                          : 'bg-bg-secondary text-text-secondary border border-transparent hover:border-border-hover'
+                      }
+                    `}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={sources.includes(source)}
+                      onChange={() => handleSourceToggle(source)}
+                      className="sr-only"
+                    />
+                    {SOURCE_INFO[source].name}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* 기간 선택 */}
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1.5">
+                분석 기간
+              </label>
+              <div className="flex gap-1.5">
+                {DATE_RANGES.map((range) => (
+                  <button
+                    key={range.value}
+                    onClick={() => onDateRangeChange(range.value)}
+                    className={`
+                      flex-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-all active:scale-95
+                      ${
+                        dateRange === range.value
+                          ? 'bg-star-purple text-white'
+                          : 'bg-bg-secondary text-text-secondary hover:text-star'
+                      }
+                    `}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 생성 버튼 */}
@@ -247,22 +244,23 @@ export default function ReportOptions({
         onClick={onGenerate}
         disabled={isGenerateDisabled}
         className={`
-          w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium transition-colors
+          w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium
+          transition-all duration-200 active:scale-[0.98]
           ${
             isGenerateDisabled
               ? 'bg-bg-secondary text-text-muted cursor-not-allowed'
-              : 'bg-gradient-to-r from-star-purple to-star-blue text-white hover:opacity-90'
+              : 'bg-gradient-to-r from-star-purple to-star-blue text-white hover:scale-[1.02] hover:shadow-lg hover:shadow-star-purple/25'
           }
         `}
       >
         {loading ? (
           <>
-            <Sparkles className="h-5 w-5 animate-pulse" />
+            <Sparkles className="h-4 w-4 animate-pulse" />
             생성 중...
           </>
         ) : (
           <>
-            <FileText className="h-5 w-5" />
+            <FileText className="h-4 w-4" />
             보고서 생성
           </>
         )}

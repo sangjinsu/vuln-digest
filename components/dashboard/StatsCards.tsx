@@ -1,9 +1,27 @@
+'use client';
+
 import { AlertTriangle, Shield, TrendingUp, Clock } from 'lucide-react';
 import { VulnResponse } from '@/lib/types';
+import { useCountUp } from '@/lib/hooks';
 
 interface StatsCardsProps {
   data: VulnResponse | null;
   loading?: boolean;
+}
+
+// 개별 숫자 카운터 컴포넌트 (리렌더링 격리)
+function AnimatedNumber({ value, loading }: { value: number; loading?: boolean }) {
+  const count = useCountUp({ end: value, duration: 800, delay: 100 });
+
+  if (loading) {
+    return <div className="h-7 w-12 animate-pulse rounded bg-bg-secondary" />;
+  }
+
+  return (
+    <span className="text-2xl font-bold text-star tabular-nums">
+      {count}
+    </span>
+  );
 }
 
 export default function StatsCards({ data, loading }: StatsCardsProps) {
@@ -45,28 +63,27 @@ export default function StatsCards({ data, loading }: StatsCardsProps) {
   ];
 
   return (
-    <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat) => (
+    <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {stats.map((stat, index) => (
         <div
           key={stat.label}
-          className="rounded-lg border border-border-default bg-bg-card p-6"
+          className="rounded-lg border border-border-default bg-bg-card p-4 hover:border-border-hover transition-all duration-200"
+          style={{ animationDelay: `${index * 50}ms` }}
         >
           <div className="flex items-center gap-3">
-            <div className={`rounded-full ${stat.bgColor} p-3`}>
-              <stat.icon className={`h-6 w-6 ${stat.textColor}`} />
+            <div className={`rounded-full ${stat.bgColor} p-2.5`}>
+              <stat.icon className={`h-5 w-5 ${stat.textColor}`} />
             </div>
             <div>
-              <p className="text-sm text-text-secondary">{stat.label}</p>
-              {loading ? (
-                <div className="h-8 w-16 animate-pulse rounded bg-bg-secondary" />
+              <p className="text-xs text-text-secondary">{stat.label}</p>
+              {stat.isTime ? (
+                loading ? (
+                  <div className="h-6 w-14 animate-pulse rounded bg-bg-secondary" />
+                ) : (
+                  <p className="text-lg font-medium text-star">{stat.value}</p>
+                )
               ) : (
-                <p
-                  className={`${
-                    stat.isTime ? 'text-lg font-medium' : 'text-2xl font-bold'
-                  } text-star`}
-                >
-                  {stat.value}
-                </p>
+                <AnimatedNumber value={stat.value as number} loading={loading} />
               )}
             </div>
           </div>

@@ -24,11 +24,12 @@ export default function DateRangePicker({ selected, onSelect }: DateRangePickerP
             key={range.value}
             onClick={() => onSelect(range.value)}
             className={`
-              rounded-md px-3 py-1.5 text-sm font-medium transition-colors
+              rounded-md px-3 py-1.5 text-sm font-medium
+              transition-all duration-200 active:scale-95
               ${
                 selected === range.value
-                  ? 'bg-star-purple text-white'
-                  : 'text-text-secondary hover:text-star'
+                  ? 'bg-star-purple text-white shadow-sm shadow-star-purple/30'
+                  : 'text-text-secondary hover:text-star hover:bg-bg-secondary/50'
               }
             `}
           >

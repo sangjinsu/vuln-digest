@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { VulnSource, DateRange, ReportType } from '@/lib/types';
+import { VulnSource, VulnResponse, DateRange, ReportType } from '@/lib/types';
 import { LLMProvider, LLM_PROVIDERS } from '@/lib/llm';
 import ReportOptions from '@/components/report/ReportOptions';
 import ReportViewer from '@/components/report/ReportViewer';
+import ConfirmModal from '@/components/report/ConfirmModal';
 
 export default function ReportPage() {
   const [sources, setSources] = useState<VulnSource[]>(['nvd', 'kisa']);
@@ -17,12 +18,60 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGenerate = useCallback(async () => {
+  // 확인 모달 상태
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<VulnResponse['meta'] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // 생성 버튼 클릭 → 데이터 조회 → 모달 표시
+  const handlePreGenerate = useCallback(async () => {
     if (!apiKey.trim()) {
       setError('API 키를 입력해주세요');
       return;
     }
 
+    setError(null);
+    setPreviewLoading(true);
+    setConfirmModalOpen(true);
+
+    try {
+      const params = new URLSearchParams({
+        sources: sources.join(','),
+        dateRange,
+        limit: '50',
+      });
+
+      const response = await fetch(`/api/vulnerabilities?${params}`);
+      if (!response.ok) {
+        throw new Error('취약점 조회에 실패했습니다');
+      }
+
+      const data: VulnResponse = await response.json();
+      setPreviewData(data.meta);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '알 수 없는 오류');
+      setConfirmModalOpen(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [sources, dateRange, apiKey]);
+
+  // 모달에서 확인 → 실제 보고서 생성
+  const handleConfirmGenerate = useCallback(() => {
+    setConfirmModalOpen(false);
+    handleGenerate();
+  }, []);
+
+  // 모달 취소
+  const handleCancelModal = useCallback(() => {
+    if (!previewLoading) {
+      setConfirmModalOpen(false);
+      setPreviewData(null);
+    }
+  }, [previewLoading]);
+
+  // 실제 보고서 생성
+  const handleGenerate = useCallback(async () => {
     setLoading(true);
     setError(null);
     setMarkdown('');
@@ -98,24 +147,24 @@ export default function ReportPage() {
   }, [sources, dateRange, reportType, llmProvider, model, apiKey]);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
       {/* 페이지 헤더 */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-star">AI 보고서 생성</h1>
-        <p className="mt-2 text-text-secondary">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-star">AI 보고서 생성</h1>
+        <p className="mt-1 text-sm text-text-secondary">
           AI가 취약점 데이터를 분석하여 한국어 보고서를 생성합니다
         </p>
       </div>
 
       {/* 에러 표시 */}
       {error && (
-        <div className="mb-6 rounded-lg border border-severity-critical/50 bg-severity-critical/10 p-4 text-severity-critical">
+        <div className="mb-4 rounded-lg border border-severity-critical/50 bg-severity-critical/10 px-3 py-2 text-sm text-severity-critical animate-fade-in-up">
           <p>{error}</p>
         </div>
       )}
 
       {/* 메인 컨텐츠 */}
-      <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
         {/* 옵션 패널 */}
         <div className="lg:sticky lg:top-24 lg:self-start">
           <ReportOptions
@@ -131,8 +180,8 @@ export default function ReportPage() {
             onLLMProviderChange={setLLMProvider}
             onModelChange={setModel}
             onApiKeyChange={setApiKey}
-            onGenerate={handleGenerate}
-            loading={loading}
+            onGenerate={handlePreGenerate}
+            loading={loading || previewLoading}
           />
         </div>
 
@@ -141,6 +190,15 @@ export default function ReportPage() {
           <ReportViewer markdown={markdown} loading={loading} />
         </div>
       </div>
+
+      {/* 확인 모달 */}
+      <ConfirmModal
+        isOpen={confirmModalOpen}
+        onConfirm={handleConfirmGenerate}
+        onCancel={handleCancelModal}
+        loading={previewLoading}
+        data={previewData}
+      />
     </div>
   );
 }

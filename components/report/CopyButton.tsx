@@ -25,7 +25,8 @@ export default function CopyButton({ text }: CopyButtonProps) {
       onClick={handleCopy}
       disabled={!text}
       className={`
-        flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
+        flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+        transition-all duration-200 active:scale-95
         ${
           copied
             ? 'bg-severity-low/20 text-severity-low'
@@ -37,7 +38,7 @@ export default function CopyButton({ text }: CopyButtonProps) {
     >
       {copied ? (
         <>
-          <Check className="h-4 w-4" />
+          <Check className="h-4 w-4 animate-scale-in" />
           복사됨
         </>
       ) : (
